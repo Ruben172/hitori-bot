@@ -1,0 +1,23 @@
+[package]
+name = "hitori"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dotenvy = "0.15"
+poise = "0.6"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+regex = "1.10"
+chrono = "0.4"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
+to-arraystring = "0.2"
+arrayvec = "0.7"
+serde = "1"
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[patch.crates-io]
+serenity = { git = "https://github.com/serenity-rs/serenity", branch = "current" }
