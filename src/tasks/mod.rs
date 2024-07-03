@@ -1,10 +1,10 @@
+use crate::commands::reminders::util::{cache_reminder, get_next_reminder};
 use crate::{Data, Error};
 use poise::serenity_prelude::Context;
 use reminders::check_reminders;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::interval;
-use crate::commands::reminders::util::{cache_reminder, get_next_reminder};
 
 mod reminders;
 

@@ -15,14 +15,13 @@ const PAGE_ITEMS: usize = 8;
     discard_spare_arguments
 )]
 pub async fn reminder_list(
-    ctx: Context<'_>,
-    #[description = "The page to start on"] start_page: Option<usize>,
+    ctx: Context<'_>, #[description = "The page to start on"] start_page: Option<usize>,
 ) -> Result<(), Error> {
     let author_id = ctx.author().id.get() as i64;
     let reminders = query!(r"SELECT id, message, timestamp, channel_id, message_id FROM reminders WHERE user_ids LIKE '%'||?||'%' AND active = 1 ORDER BY timestamp ASC", author_id).fetch_all(&ctx.data().pool).await?;
     if reminders.len() == 0 {
         ctx.say("You have no active reminders.").await?;
-        return Ok(())
+        return Ok(());
     }
     let mut reminder_pages = Vec::<Vec<String>>::new();
     for (i, reminder) in reminders.iter().enumerate() {
@@ -34,5 +33,11 @@ pub async fn reminder_list(
         }
     }
 
-    paginate(ctx, reminder_pages, format!("Active reminders for {}", ctx.author().name), start_page.unwrap_or_default()).await
+    paginate(
+        ctx,
+        reminder_pages,
+        format!("Active reminders for {}", ctx.author().name),
+        start_page.unwrap_or_default(),
+    )
+    .await
 }

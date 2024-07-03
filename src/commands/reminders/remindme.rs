@@ -1,11 +1,11 @@
-use crate::commands::reminders::util::{serialize_reminder, Reminder, check_author_reminder_count};
+use crate::commands::reminders::util::{check_author_reminder_count, serialize_reminder, Reminder};
 use crate::commands::util::{message_id_from_ctx, referenced_from_ctx};
-use crate::{Context, Error, BOT_COLOR};
-use chrono::{Utc};
-use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter};
-use poise::{CreateReply};
-use regex::Captures;
 use crate::util::send_ephemeral_text;
+use crate::{Context, Error, BOT_COLOR};
+use chrono::Utc;
+use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter};
+use poise::CreateReply;
+use regex::Captures;
 
 fn relative_matches_to_seconds(captures: Captures) -> Result<i32, &str> {
     let second_conversions: [i32; 7] = [31557600, 2629800, 604800, 86400, 3600, 60, 1]; // year, month, week, day, hour, minute, second
@@ -34,14 +34,19 @@ fn relative_matches_to_seconds(captures: Captures) -> Result<i32, &str> {
 /// Create a reminder
 ///
 /// h!remindme <timestamp> <message>
-#[poise::command(slash_command, prefix_command, aliases("rm", "rember", "reminder", "remind", "dothething","BOCCHIDONTYOUDAREFORGET"))]
+#[poise::command(
+    slash_command,
+    prefix_command,
+    aliases("rm", "rember", "reminder", "remind", "dothething", "BOCCHIDONTYOUDAREFORGET")
+)]
 pub async fn remindme(
-    ctx: Context<'_>,
-    #[description = "When you want to be reminded"] timestamp: String,
-    #[description = "What you would like to be reminded of"] #[rest] mut message: Option<String>,
+    ctx: Context<'_>, #[description = "When you want to be reminded"] timestamp: String,
+    #[description = "What you would like to be reminded of"]
+    #[rest]
+    mut message: Option<String>,
 ) -> Result<(), Error> {
     if check_author_reminder_count(ctx).await.is_err() {
-        return Ok(())
+        return Ok(());
     }
     let regex_cache = &ctx.data().regex_cache;
     let relative_time = &regex_cache.relative_time;

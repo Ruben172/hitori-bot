@@ -8,8 +8,8 @@ use dotenvy::dotenv;
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::{ChannelId, Color, GuildId};
 use regex::Regex;
+use sqlx::SqlitePool;
 use std::sync::{Arc, Mutex};
-use sqlx::{SqlitePool};
 
 const BOT_COLOR: Color = Color::new(0xfcaaf9);
 const GUILD_ID: GuildId = GuildId::new(1257347557789663252);
@@ -43,11 +43,7 @@ async fn main() {
         relative_time: Regex::new(r"^(?:(\d+)(?:y|Y)(?:[a-zA-Z]+)?)?(?:(\d+)(?:M|mo)(?:[a-zA-Z]+)?)?(?:(\d+)(?:w|W)(?:[a-zA-Z]+)?)?(?:(\d+)(?:d|D)(?:[a-zA-Z]+)?)?(?:(\d+)(?:h|H)(?:[a-zA-Z]+)?)?(?:(\d+)(?:m)(?:[a-zA-Z]+)?)?(?:(\d+)(?:s|S)(?:[a-zA-Z]+)?)?$").unwrap()
     };
     let pool = SqlitePool::connect(&database_url).await.unwrap();
-    let data = Arc::new(Data {
-        regex_cache,
-        next_reminder: Mutex::new(None),
-        pool,
-    });
+    let data = Arc::new(Data { regex_cache, next_reminder: Mutex::new(None), pool });
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
@@ -63,16 +59,12 @@ async fn main() {
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
                 let ctx_clone = ctx.clone();
                 let data_clone = data.clone();
-                tokio::spawn(async move {
-                    task_handler(ctx_clone, data_clone).await
-                });
+                tokio::spawn(async move { task_handler(ctx_clone, data_clone).await });
                 Ok(data)
             })
         })
         .build();
 
-    let client = serenity::ClientBuilder::new(token, intents)
-        .framework(framework)
-        .await;
+    let client = serenity::ClientBuilder::new(token, intents).framework(framework).await;
     client.unwrap().start().await.unwrap();
 }

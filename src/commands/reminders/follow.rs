@@ -12,8 +12,7 @@ use sqlx::query;
 /// h!remindme <reminder ID>
 #[poise::command(slash_command, prefix_command, discard_spare_arguments)]
 pub async fn follow(
-    ctx: Context<'_>,
-    #[description = "The reminder to track"] reminder_id: u32,
+    ctx: Context<'_>, #[description = "The reminder to track"] reminder_id: u32,
 ) -> Result<(), Error> {
     if check_author_reminder_count(ctx).await.is_err() {
         return Ok(());

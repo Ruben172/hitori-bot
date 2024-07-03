@@ -1,21 +1,32 @@
-use crate::{BOT_COLOR, Context, Error};
-use poise::serenity_prelude::{ComponentInteractionCollector, CreateActionRow, CreateButton, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateInteractionResponse, CreateInteractionResponseMessage, EmojiId, ReactionType};
+use crate::{Context, Error, BOT_COLOR};
+use poise::serenity_prelude::{
+    ComponentInteractionCollector, CreateActionRow, CreateButton, CreateEmbed, CreateEmbedAuthor,
+    CreateEmbedFooter, CreateInteractionResponse, CreateInteractionResponseMessage, EmojiId,
+    ReactionType,
+};
 use poise::CreateReply;
 
-fn create_page_embed(ctx: Context<'_>, pages: Vec<Vec<String>>, title: String, page: usize) -> CreateEmbed {
+fn create_page_embed(
+    ctx: Context<'_>, pages: Vec<Vec<String>>, title: String, page: usize,
+) -> CreateEmbed {
     CreateEmbed::default()
         .color(BOT_COLOR)
         .author(CreateEmbedAuthor::from(ctx.author().clone()))
         .title(title)
         .description(pages[page].join("\n"))
-        .footer(CreateEmbedFooter::new(format!("Page {}/{} - Showing entries {}-{} out of {}.",
-                                               page+1, pages.len(), page * pages[0].len() + 1,
-                                               page * pages[0].len() + pages[page].len(),
-                                               pages[0].len() * (pages.len() - 1) + pages[pages.len() - 1].len()
+        .footer(CreateEmbedFooter::new(format!(
+            "Page {}/{} - Showing entries {}-{} out of {}.",
+            page + 1,
+            pages.len(),
+            page * pages[0].len() + 1,
+            page * pages[0].len() + pages[page].len(),
+            pages[0].len() * (pages.len() - 1) + pages[pages.len() - 1].len()
         )))
 }
 
-pub async fn paginate(ctx: Context<'_>, pages: Vec<Vec<String>>, title: String, mut page: usize) -> Result<(), Error> {
+pub async fn paginate(
+    ctx: Context<'_>, pages: Vec<Vec<String>>, title: String, mut page: usize,
+) -> Result<(), Error> {
     // Define some unique identifiers for the navigation buttons
     let ctx_id = ctx.id();
     if page >= pages.len() {
@@ -26,8 +37,12 @@ pub async fn paginate(ctx: Context<'_>, pages: Vec<Vec<String>>, title: String, 
 
     // Send the embed with the first page as content
     let mut reply = {
-        CreateReply::default()
-            .embed(create_page_embed(ctx, pages.clone(), title.clone(), page.clone()))
+        CreateReply::default().embed(create_page_embed(
+            ctx,
+            pages.clone(),
+            title.clone(),
+            page.clone(),
+        ))
     };
 
     if pages.len() > 1 {
@@ -35,12 +50,12 @@ pub async fn paginate(ctx: Context<'_>, pages: Vec<Vec<String>>, title: String, 
             CreateButton::new(&prev_button_id).emoji(ReactionType::Custom {
                 animated: false,
                 id: EmojiId::new(1257787809633275954),
-                name: Some("bwaaa_left".into())
+                name: Some("bwaaa_left".into()),
             }),
-            CreateButton::new(&next_button_id).emoji(ReactionType::Custom{
+            CreateButton::new(&next_button_id).emoji(ReactionType::Custom {
                 animated: false,
                 id: EmojiId::new(1257787824283844772),
-                name: Some("bwaaa_right".into())
+                name: Some("bwaaa_right".into()),
             }),
         ]);
         reply = reply.components(vec![components])
@@ -74,8 +89,12 @@ pub async fn paginate(ctx: Context<'_>, pages: Vec<Vec<String>>, title: String, 
             .create_response(
                 ctx.serenity_context(),
                 CreateInteractionResponse::UpdateMessage(
-                    CreateInteractionResponseMessage::new()
-                        .embed(create_page_embed(ctx, pages.clone(), title.clone(), page.clone())),
+                    CreateInteractionResponseMessage::new().embed(create_page_embed(
+                        ctx,
+                        pages.clone(),
+                        title.clone(),
+                        page.clone(),
+                    )),
                 ),
             )
             .await?;

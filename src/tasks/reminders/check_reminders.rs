@@ -34,11 +34,7 @@ pub async fn check_reminders(ctx: &Context, data: &Arc<Data>) {
             reminder.channel_id,
             reminder.message_id
         ));
-        if user_id
-            .direct_message(ctx, CreateMessage::new().embed(embed))
-            .await
-            .is_err()
-        {
+        if user_id.direct_message(ctx, CreateMessage::new().embed(embed)).await.is_err() {
             dm_disabled_users.push(user_id);
         }
     }

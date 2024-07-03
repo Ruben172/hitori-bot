@@ -1,10 +1,10 @@
-use std::sync::Arc;
 use crate::{Context, Data, Error};
 use poise::serenity_prelude::{ChannelId, MessageId, UserId};
 use sqlx::{query, SqlitePool};
+use std::sync::Arc;
 
-use serde_json;
 use crate::util::send_ephemeral_text;
+use serde_json;
 
 const MAX_REMINDERS: i32 = 25;
 
@@ -52,25 +52,29 @@ pub fn deserialize_user_ids(users_str: &str) -> Vec<UserId> {
 
 pub async fn get_next_reminder(pool: &SqlitePool) -> Option<Reminder> {
     let next_reminder = query!("SELECT id, user_ids, message, timestamp, created_at, channel_id, message_id FROM reminders WHERE active = 1 ORDER BY timestamp ASC LIMIT 1").fetch_one(pool).await.ok();
-    next_reminder.map(|next_reminder| {
-        Reminder {
-            id: Some(next_reminder.id as u32),
-            timestamp: next_reminder.timestamp,
-            created_at: next_reminder.created_at,
-            user_ids: deserialize_user_ids(&next_reminder.user_ids),
-            channel_id: ChannelId::new(next_reminder.channel_id as u64),
-            message_id: MessageId::new(next_reminder.message_id as u64),
-            message: next_reminder.message,
-        }
+    next_reminder.map(|next_reminder| Reminder {
+        id: Some(next_reminder.id as u32),
+        timestamp: next_reminder.timestamp,
+        created_at: next_reminder.created_at,
+        user_ids: deserialize_user_ids(&next_reminder.user_ids),
+        channel_id: ChannelId::new(next_reminder.channel_id as u64),
+        message_id: MessageId::new(next_reminder.message_id as u64),
+        message: next_reminder.message,
     })
 }
 
 pub async fn check_author_reminder_count(ctx: Context<'_>) -> Result<(), Error> {
     let author_id = ctx.author().id.get() as i64;
-    let reminder_count = query!(r"SELECT COUNT(*) AS count FROM reminders WHERE user_ids LIKE '%'||?||'%' AND active = 1", author_id).fetch_one(&ctx.data().pool).await?.count;
+    let reminder_count = query!(
+        r"SELECT COUNT(*) AS count FROM reminders WHERE user_ids LIKE '%'||?||'%' AND active = 1",
+        author_id
+    )
+    .fetch_one(&ctx.data().pool)
+    .await?
+    .count;
     if reminder_count >= MAX_REMINDERS {
         send_ephemeral_text(ctx, "You have too many active reminders").await?;
-        return Err("".into())
+        return Err("".into());
     }
     Ok(())
 }
