@@ -83,3 +83,8 @@ pub async fn paginate(ctx: Context<'_>, pages: Vec<Vec<String>>, title: String, 
 
     Ok(())
 }
+
+pub async fn send_ephemeral_text(ctx: Context<'_>, content: &str) -> Result<(), Error> {
+    ctx.send(CreateReply::default().content(content).ephemeral(true)).await?;
+    Ok(())
+}

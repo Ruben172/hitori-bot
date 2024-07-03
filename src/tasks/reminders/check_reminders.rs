@@ -15,9 +15,9 @@ pub async fn check_reminders(ctx: &Context, data: &Arc<Data>) {
         return;
     };
 
-    let embed = CreateEmbed::new()
-        .color(BOT_COLOR)
-        .author(CreateEmbedAuthor::new("Reminder notification!").icon_url(ctx.cache.current_user().face()));
+    let embed = CreateEmbed::new().color(BOT_COLOR).author(
+        CreateEmbedAuthor::new("Reminder notification!").icon_url(ctx.cache.current_user().face()),
+    );
     let mut dm_disabled_users = Vec::new();
 
     for user_id in &reminder.user_ids {

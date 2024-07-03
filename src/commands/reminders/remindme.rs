@@ -1,11 +1,11 @@
-use crate::commands::reminders::util::{serialize_reminder, Reminder};
+use crate::commands::reminders::util::{serialize_reminder, Reminder, check_author_reminder_count};
 use crate::commands::util::{message_id_from_ctx, referenced_from_ctx};
 use crate::{Context, Error, BOT_COLOR};
 use chrono::{Utc};
 use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter};
 use poise::{CreateReply};
 use regex::Captures;
-use sqlx::{query};
+use crate::util::send_ephemeral_text;
 
 fn relative_matches_to_seconds(captures: Captures) -> Result<i32, &str> {
     let second_conversions: [i32; 7] = [31557600, 2629800, 604800, 86400, 3600, 60, 1]; // year, month, week, day, hour, minute, second
@@ -40,10 +40,7 @@ pub async fn remindme(
     #[description = "When you want to be reminded"] timestamp: String,
     #[description = "What you would like to be reminded of"] #[rest] mut message: Option<String>,
 ) -> Result<(), Error> {
-    let author_id = ctx.author().id.get() as i64;
-    let reminder_count = query!(r"SELECT COUNT(*) AS count FROM reminders WHERE user_ids LIKE '%'||?||'%' AND active = 1", author_id).fetch_one(&ctx.data().pool).await?.count;
-    if reminder_count > 25 {
-        ctx.send(CreateReply::default().content("You have too many active reminders").ephemeral(true)).await?;
+    if check_author_reminder_count(ctx).await.is_err() {
         return Ok(())
     }
     let regex_cache = &ctx.data().regex_cache;
@@ -82,7 +79,7 @@ pub async fn remindme(
             )));
         ctx.send(CreateReply::default().embed(embed)).await?;
     } else {
-        ctx.send(CreateReply::default().content("Invalid timestamp.").ephemeral(true)).await?;
+        send_ephemeral_text(ctx, "Invalid timestamp.").await?;
     }
     Ok(())
 }
