@@ -1,5 +1,5 @@
 use crate::commands::reminders::util::{
-    check_author_reminder_count, deserialize_user_ids, serialize_user_ids,
+    check_author_reminder_count, serialize_user_ids, user_ids_from_reminder_id,
 };
 use crate::util::send_ephemeral_text;
 use crate::{Context, Error, BOT_COLOR};
@@ -9,7 +9,7 @@ use sqlx::query;
 
 /// Follow someone else's reminder
 ///
-/// h!remindme <reminder ID>
+/// h!follow <reminder ID>
 #[poise::command(slash_command, prefix_command, discard_spare_arguments)]
 pub async fn follow(
     ctx: Context<'_>, #[description = "The reminder to track"] reminder_id: u32,
@@ -17,17 +17,7 @@ pub async fn follow(
     if check_author_reminder_count(ctx).await.is_err() {
         return Ok(());
     }
-    let reminder =
-        query!("SELECT user_ids FROM reminders WHERE id = ? AND active = 1", reminder_id)
-            .fetch_one(&ctx.data().pool)
-            .await
-            .ok();
-    let Some(reminder) = reminder else {
-        send_ephemeral_text(ctx, "Reminder does not exist or has already expired.").await?;
-        return Ok(());
-    };
-
-    let mut user_ids = deserialize_user_ids(&reminder.user_ids);
+    let Ok(mut user_ids) = user_ids_from_reminder_id(ctx, reminder_id).await else { return Ok(()) };
     if user_ids.contains(&ctx.author().id) {
         send_ephemeral_text(ctx, "You are already following this reminder.").await?;
         return Ok(());
@@ -35,10 +25,9 @@ pub async fn follow(
 
     user_ids.push(ctx.author().id);
     let serialized_user_ids = serialize_user_ids(&user_ids);
-    let _ =
-        query!("UPDATE reminders SET user_ids = ? WHERE ID = ?", serialized_user_ids, reminder_id)
-            .execute(&ctx.data().pool)
-            .await?;
+    query!("UPDATE reminders SET user_ids = ? WHERE ID = ?", serialized_user_ids, reminder_id)
+        .execute(&ctx.data().pool)
+        .await?;
     {
         let mut next_reminder = ctx.data().next_reminder.lock().unwrap();
         if let Some(stored_reminder) = &mut *next_reminder {

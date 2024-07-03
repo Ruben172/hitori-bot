@@ -30,6 +30,19 @@ pub fn cache_reminder(data: &Arc<Data>, r: &mut Reminder) -> () {
     }
 }
 
+pub async fn get_next_reminder(pool: &SqlitePool) -> Option<Reminder> {
+    let next_reminder = query!("SELECT id, user_ids, message, timestamp, created_at, channel_id, message_id FROM reminders WHERE active = 1 ORDER BY timestamp ASC LIMIT 1").fetch_one(pool).await.ok();
+    next_reminder.map(|next_reminder| Reminder {
+        id: Some(next_reminder.id as u32),
+        timestamp: next_reminder.timestamp,
+        created_at: next_reminder.created_at,
+        user_ids: deserialize_user_ids(&next_reminder.user_ids),
+        channel_id: ChannelId::new(next_reminder.channel_id as u64),
+        message_id: MessageId::new(next_reminder.message_id as u64),
+        message: next_reminder.message,
+    })
+}
+
 pub async fn serialize_reminder(ctx: Context<'_>, r: &mut Reminder) -> Result<(), Error> {
     let users_json = serialize_user_ids(&r.user_ids);
     let channel_id = r.channel_id.get() as i64;
@@ -50,17 +63,21 @@ pub fn deserialize_user_ids(users_str: &str) -> Vec<UserId> {
     serde_json::from_str::<Vec<UserId>>(&users_str).unwrap()
 }
 
-pub async fn get_next_reminder(pool: &SqlitePool) -> Option<Reminder> {
-    let next_reminder = query!("SELECT id, user_ids, message, timestamp, created_at, channel_id, message_id FROM reminders WHERE active = 1 ORDER BY timestamp ASC LIMIT 1").fetch_one(pool).await.ok();
-    next_reminder.map(|next_reminder| Reminder {
-        id: Some(next_reminder.id as u32),
-        timestamp: next_reminder.timestamp,
-        created_at: next_reminder.created_at,
-        user_ids: deserialize_user_ids(&next_reminder.user_ids),
-        channel_id: ChannelId::new(next_reminder.channel_id as u64),
-        message_id: MessageId::new(next_reminder.message_id as u64),
-        message: next_reminder.message,
-    })
+pub async fn user_ids_from_reminder_id(
+    ctx: Context<'_>, reminder_id: u32,
+) -> Result<Vec<UserId>, Error> {
+    let reminder =
+        query!("SELECT user_ids FROM reminders WHERE id = ? AND active = 1", reminder_id)
+            .fetch_one(&ctx.data().pool)
+            .await
+            .ok();
+
+    let Some(reminder) = reminder else {
+        send_ephemeral_text(ctx, "Reminder does not exist or has already expired.").await?;
+        return Err("".into());
+    };
+
+    Ok(deserialize_user_ids(&reminder.user_ids))
 }
 
 pub async fn check_author_reminder_count(ctx: Context<'_>) -> Result<(), Error> {
