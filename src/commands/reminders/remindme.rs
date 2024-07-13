@@ -32,7 +32,7 @@ pub async fn remindme(
     if unix_timestamp > Utc::now().timestamp() + MAX_REMINDER_SECONDS {
         send_ephemeral_text(ctx, "Reminder duration too long.").await?;
         return Ok(());
-    };
+    }; // TODO: future hceck
     if let Some(reference) = referenced_from_ctx(ctx) {
         if message.is_none() && !reference.content.is_empty() {
             message = Some(reference.content);

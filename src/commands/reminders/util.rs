@@ -47,23 +47,37 @@ fn match_to_int(captures: &Captures) -> Result<i32, ()> {
     Ok(parsed_amount)
 }
 
-fn relative_matches_to_seconds(captures: &Captures) -> Result<i32, ()> {
-    let second_conversions: [i32; 7] = [31557600, 2629800, 604800, 86400, 3600, 60, 1]; // year, month, week, day, hour, minute, second
-    let mut seconds: i32 = 0;
+fn multiply_by_position(data: Vec<Option<i32>>, table: &[i32]) -> Result<i32, ()> {
+    let mut amount: i32 = 0;
 
-    for (i, capture) in matches_to_vecint(captures)?.iter().enumerate() {
+    for (i, capture) in data.iter().enumerate() {
         let Some(c) = capture else {
             continue;
         };
-        let Some(parsed_seconds) = c.checked_mul(second_conversions[i]) else {
+        let Some(rhs) = table.get(i) else {
             return Err(());
         };
-        if seconds.checked_add(parsed_seconds).is_none() {
+        let Some(multiplied_amt) = c.checked_mul(*rhs) else {
             return Err(());
         };
-        seconds += parsed_seconds;
+        if amount.checked_add(multiplied_amt).is_none() {
+            return Err(());
+        };
+        amount += multiplied_amt;
     }
-    Ok(seconds)
+    Ok(amount)
+}
+
+pub fn date_timezone_to_timestamp(
+    mut year: i32, month: u32, day: u32, timezone: Tz,
+) -> Result<i64, ()> {
+    if year < 100 {
+        year += 2000;
+    }
+    let Some(dt) = timezone.with_ymd_and_hms(year, month, day, 0, 0, 0).earliest() else {
+        return Err(());
+    };
+    return Ok(dt.with_timezone(&Utc).timestamp());
 }
 
 pub fn parse_timestamp(data: &Arc<Data>, timestamp: String) -> Result<i64, ()> {
@@ -72,7 +86,8 @@ pub fn parse_timestamp(data: &Arc<Data>, timestamp: String) -> Result<i64, ()> {
     match timestamp.split_whitespace().count() {
         1 => {
             if let Some(captures) = &rc.relative_time.captures(&timestamp) {
-                let seconds = relative_matches_to_seconds(captures)?;
+                let second_conversions: [i32; 7] = [31557600, 2629800, 604800, 86400, 3600, 60, 1]; // year, month, week, day, hour, minute, second
+                let seconds = multiply_by_position(matches_to_vecint(captures)?, &second_conversions)?;
                 return Ok(Utc::now().timestamp() + seconds as i64);
             } else if let Some(captures) = &rc.date_ymd.captures(&timestamp) {
                 let Ok(int_matches) = matches_to_vecint(&captures) else { return Err(()) };
@@ -81,44 +96,25 @@ pub fn parse_timestamp(data: &Arc<Data>, timestamp: String) -> Result<i64, ()> {
                 else {
                     return Err(());
                 };
-                let Some(nz_dt) = NZ_TZ
-                    .with_ymd_and_hms(
-                        year.clone(),
-                        month.clone() as u32,
-                        date.clone() as u32,
-                        0,
-                        0,
-                        0,
-                    )
-                    .earliest()
-                else {
-                    return Err(());
-                };
-                return Ok(nz_dt.with_timezone(&Utc).timestamp());
+                return date_timezone_to_timestamp(
+                    year.clone(),
+                    month.clone() as u32,
+                    date.clone() as u32,
+                    NZ_TZ,
+                );
             } else if let Some(captures) = &rc.date_dmy.captures(&timestamp) {
                 let Ok(int_matches) = matches_to_vecint(&captures) else { return Err(()) };
-                let (Some(Some(date)), Some(Some(month)), Some(Some(mut year))) =
+                let (Some(Some(date)), Some(Some(month)), Some(Some(year))) =
                     (int_matches.get(0), int_matches.get(1), int_matches.get(2))
                 else {
                     return Err(());
                 };
-                if year < 100 {
-                    year += 2000
-                }
-                let Some(nz_dt) = NZ_TZ
-                    .with_ymd_and_hms(
-                        year.clone(),
-                        month.clone() as u32,
-                        date.clone() as u32,
-                        0,
-                        0,
-                        0,
-                    )
-                    .earliest()
-                else {
-                    return Err(());
-                };
-                return Ok(nz_dt.with_timezone(&Utc).timestamp());
+                return date_timezone_to_timestamp(
+                    year.clone(),
+                    month.clone() as u32,
+                    date.clone() as u32,
+                    NZ_TZ,
+                );
             } else if let Some(captures) = &rc.time.captures(&timestamp) {
                 let Ok(int_matches) = matches_to_vecint(&captures) else { return Err(()) };
                 let (Some(Some(hours)), Some(Some(minutes)), Some(seconds)) =
