@@ -19,9 +19,7 @@ use sqlx::query;
 pub async fn unfollow(
     ctx: Context<'_>, #[description = "The reminder to stop tracking"] reminder_id: u32,
 ) -> Result<(), Error> {
-    let Ok(mut user_ids) = user_ids_from_reminder_id(ctx, reminder_id).await else {
-        return Ok(())
-    };
+    let Ok(mut user_ids) = user_ids_from_reminder_id(ctx, reminder_id).await else { return Ok(()) };
 
     match user_ids.iter().position(|&x| x == ctx.author().id) {
         Some(item) => user_ids.remove(item),

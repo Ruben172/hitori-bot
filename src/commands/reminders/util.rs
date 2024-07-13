@@ -69,18 +69,41 @@ fn multiply_by_position(data: &[Option<i32>], table: &[i32]) -> Result<i32, ()> 
 }
 
 pub fn date_timezone_to_timestamp(
-    mut year: i32, month: u32, day: u32, timezone: Tz,
+    year: i32, month: u32, day: u32, timezone: Tz,
 ) -> Result<i64, ()> {
-    if year < 100 {
-        year += 2000;
-    }
     let Some(dt) = timezone.with_ymd_and_hms(year, month, day, 0, 0, 0).earliest() else {
         return Err(());
     };
     Ok(dt.with_timezone(&Utc).timestamp())
 }
 
-#[allow(clippy::too_many_lines)] // TODO?
+pub fn parse_ymd(
+    data: &[Option<i32>], year_index: usize, day_index: usize,
+) -> Result<(i32, u32, u32), ()> {
+    let (Some(Some(mut year)), Some(Some(month)), Some(Some(day))) =
+        (data.get(year_index), data.get(1), data.get(day_index))
+    else {
+        return Err(());
+    };
+    if year < 100 {
+        year += 2000;
+    }
+    Ok((year, *month as u32, *day as u32))
+}
+
+pub fn parse_naivetime(data: &[Option<i32>], hour_index: usize) -> Result<NaiveTime, ()> {
+    let (Some(Some(hours)), Some(Some(minutes)), Some(seconds)) =
+        (data.get(hour_index), data.get(hour_index + 1), data.get(hour_index + 2))
+    else {
+        return Err(());
+    };
+    let seconds = seconds.unwrap_or(0);
+    let Some(time) = NaiveTime::from_hms_opt(*hours as u32, *minutes as u32, seconds as u32) else {
+        return Err(());
+    };
+    Ok(time)
+}
+
 pub fn parse_timestamp(data: &Arc<Data>, timestamp: &str) -> Result<i64, ()> {
     let rc = &data.regex_cache;
     match timestamp.split_whitespace().count() {
@@ -92,34 +115,16 @@ pub fn parse_timestamp(data: &Arc<Data>, timestamp: &str) -> Result<i64, ()> {
                 return Ok(Utc::now().timestamp() + seconds as i64);
             } else if let Some(captures) = &rc.date_ymd.captures(timestamp) {
                 let Ok(int_matches) = matches_to_vecint(captures) else { return Err(()) };
-                let (Some(Some(year)), Some(Some(month)), Some(Some(date))) =
-                    (int_matches.get(0), int_matches.get(1), int_matches.get(2))
-                else {
-                    return Err(());
-                };
-                return date_timezone_to_timestamp(*year, *month as u32, *date as u32, NZ_TZ);
+                let (year, month, day) = parse_ymd(&int_matches, 0, 2)?;
+                return date_timezone_to_timestamp(year, month, day, NZ_TZ);
             } else if let Some(captures) = &rc.date_dmy.captures(timestamp) {
                 let Ok(int_matches) = matches_to_vecint(captures) else { return Err(()) };
-                let (Some(Some(date)), Some(Some(month)), Some(Some(year))) =
-                    (int_matches.get(0), int_matches.get(1), int_matches.get(2))
-                else {
-                    return Err(());
-                };
-                return date_timezone_to_timestamp(*year, *month as u32, *date as u32, NZ_TZ);
+                let (year, month, day) = parse_ymd(&int_matches, 2, 0)?;
+                return date_timezone_to_timestamp(year, month, day, NZ_TZ);
             } else if let Some(captures) = &rc.time.captures(timestamp) {
                 let Ok(int_matches) = matches_to_vecint(captures) else { return Err(()) };
-                let (Some(Some(hours)), Some(Some(minutes)), Some(seconds)) =
-                    (int_matches.get(0), int_matches.get(1), int_matches.get(2))
-                else {
-                    return Err(());
-                };
-                let seconds = seconds.unwrap_or(0);
+                let time = parse_naivetime(&int_matches, 0)?;
                 let date = Utc::now().date_naive();
-                let Some(time) =
-                    NaiveTime::from_hms_opt(*hours as u32, *minutes as u32, seconds as u32)
-                else {
-                    return Err(());
-                };
                 let timestamp = NaiveDateTime::new(date, time).and_utc().timestamp();
                 if timestamp < Utc::now().timestamp() {
                     return Ok(timestamp + DAY_IN_SECONDS);
@@ -139,71 +144,24 @@ pub fn parse_timestamp(data: &Arc<Data>, timestamp: &str) -> Result<i64, ()> {
         2 => {
             if let Some(captures) = &rc.datetime_ymd.captures(timestamp) {
                 let Ok(int_matches) = matches_to_vecint(captures) else { return Err(()) };
-                let (
-                    Some(Some(year)),
-                    Some(Some(month)),
-                    Some(Some(day)),
-                    Some(Some(hours)),
-                    Some(Some(minutes)),
-                    Some(seconds),
-                ) = (
-                    int_matches.get(0),
-                    int_matches.get(1),
-                    int_matches.get(2),
-                    int_matches.get(3),
-                    int_matches.get(4),
-                    int_matches.get(5),
-                )
-                else {
+                let (year, month, day) = parse_ymd(&int_matches, 0, 2)?;
+                let Some(date) = NaiveDate::from_ymd_opt(year, month, day) else {
                     return Err(());
                 };
-                let seconds = seconds.unwrap_or_else(|| 0);
-                let Some(date) = NaiveDate::from_ymd_opt(*year, *month as u32, *day as u32) else {
-                    return Err(());
-                };
-                let Some(time) =
-                    NaiveTime::from_hms_opt(*hours as u32, *minutes as u32, seconds as u32)
-                else {
-                    return Err(());
-                };
+                let time = parse_naivetime(&int_matches, 3)?;
                 return Ok(NaiveDateTime::new(date, time).and_utc().timestamp());
             } else if let Some(captures) = &rc.datetime_dmy.captures(timestamp) {
                 let Ok(int_matches) = matches_to_vecint(captures) else { return Err(()) };
-                let (
-                    Some(Some(day)),
-                    Some(Some(month)),
-                    Some(Some(mut year)),
-                    Some(Some(hours)),
-                    Some(Some(minutes)),
-                    Some(seconds),
-                ) = (
-                    int_matches.get(0),
-                    int_matches.get(1),
-                    int_matches.get(2),
-                    int_matches.get(3),
-                    int_matches.get(4),
-                    int_matches.get(5),
-                )
-                else {
+                let (year, month, day) = parse_ymd(&int_matches, 2, 0)?;
+                let Some(date) = NaiveDate::from_ymd_opt(year, month, day) else {
                     return Err(());
                 };
-                if year < 100 {
-                    year += 2000;
-                }
-                let seconds = seconds.unwrap_or(0);
-                let Some(date) = NaiveDate::from_ymd_opt(year, *month as u32, *day as u32) else {
-                    return Err(());
-                };
-                let Some(time) =
-                    NaiveTime::from_hms_opt(*hours as u32, *minutes as u32, seconds as u32)
-                else {
-                    return Err(());
-                };
+                let time = parse_naivetime(&int_matches, 3)?;
                 return Ok(NaiveDateTime::new(date, time).and_utc().timestamp());
-            } 
+            }
             Err(())
         }
-        _ => Err(())
+        _ => Err(()),
     }
 }
 

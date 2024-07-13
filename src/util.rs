@@ -36,14 +36,8 @@ pub async fn paginate(
     let next_button_id = format!("{ctx_id}next");
 
     // Send the embed with the first page as content
-    let mut reply = {
-        CreateReply::default().embed(create_page_embed(
-            ctx,
-            pages,
-            title.clone(),
-            page,
-        ))
-    };
+    let mut reply =
+        { CreateReply::default().embed(create_page_embed(ctx, pages, title.clone(), page)) };
 
     if pages.len() > 1 {
         let components = CreateActionRow::Buttons(vec![
