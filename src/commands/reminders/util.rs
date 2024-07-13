@@ -1,17 +1,16 @@
+use crate::util::send_ephemeral_text;
 use crate::{Context, Data, Error};
+use chrono::{NaiveDateTime, NaiveTime, TimeZone, Utc};
+use chrono_tz::Tz;
 use poise::serenity_prelude::{ChannelId, MessageId, UserId};
+use regex::Captures;
+use serde_json;
 use sqlx::{query, SqlitePool};
 use std::sync::Arc;
-use chrono::format::Parsed;
-use chrono::{NaiveDate, NaiveDateTime, TimeZone, Utc};
-use chrono_tz::Tz;
-use regex::Captures;
-use crate::util::send_ephemeral_text;
-use serde_json;
-use tracing_subscriber::fmt::time;
 
 const MAX_REMINDERS: i32 = 25;
 const NZ_TZ: Tz = chrono_tz::NZ;
+const DAY_IN_SECONDS: i64 = 86400;
 
 #[derive(Debug, Clone)]
 pub struct Reminder {
@@ -41,9 +40,7 @@ fn matches_to_vecint(captures: &Captures) -> Result<Vec<Option<i32>>, ()> {
 }
 
 fn match_to_int(captures: &Captures) -> Result<i32, ()> {
-    let Some(capture) = captures.get(1) else {
-        return Err(())
-    };
+    let Some(capture) = captures.get(1) else { return Err(()) };
     let Ok(parsed_amount) = capture.as_str().parse::<i32>() else {
         return Err(());
     };
@@ -76,40 +73,89 @@ pub fn parse_timestamp(data: &Arc<Data>, timestamp: String) -> Result<i64, ()> {
         1 => {
             if let Some(captures) = &rc.relative_time.captures(&timestamp) {
                 let seconds = relative_matches_to_seconds(captures)?;
-                return Ok(Utc::now().timestamp() + seconds as i64)
+                return Ok(Utc::now().timestamp() + seconds as i64);
             } else if let Some(captures) = &rc.date_ymd.captures(&timestamp) {
-                let Ok(int_matches) = matches_to_vecint(&captures) else {
-                    return Err(())
+                let Ok(int_matches) = matches_to_vecint(&captures) else { return Err(()) };
+                let (Some(Some(year)), Some(Some(month)), Some(Some(date))) =
+                    (int_matches.get(0), int_matches.get(1), int_matches.get(2))
+                else {
+                    return Err(());
                 };
-                let (Some(Some(year)), Some(Some(month)), Some(Some(date))) = (int_matches.get(0), int_matches.get(1), int_matches.get(2)) else {
-                    return Err(())
+                let Some(nz_dt) = NZ_TZ
+                    .with_ymd_and_hms(
+                        year.clone(),
+                        month.clone() as u32,
+                        date.clone() as u32,
+                        0,
+                        0,
+                        0,
+                    )
+                    .earliest()
+                else {
+                    return Err(());
                 };
-                let Some(nz_dt) = NZ_TZ.with_ymd_and_hms(year.clone(), month.clone() as u32, date.clone() as u32, 0, 0, 0).earliest() else {
-                    return Err(())
+                return Ok(nz_dt.with_timezone(&Utc).timestamp());
+            } else if let Some(captures) = &rc.date_dmy.captures(&timestamp) {
+                let Ok(int_matches) = matches_to_vecint(&captures) else { return Err(()) };
+                let (Some(Some(date)), Some(Some(month)), Some(Some(mut year))) =
+                    (int_matches.get(0), int_matches.get(1), int_matches.get(2))
+                else {
+                    return Err(());
                 };
-                return Ok(nz_dt.with_timezone(&Utc).timestamp())
-            // } else if let Some(captures) = &rc.date_dmy.captures(&timestamp) {
-            //
-            // } else if let Some(captures) = &rc.time.captures(&timestamp) {
-
+                if year < 100 {
+                    year += 2000
+                }
+                let Some(nz_dt) = NZ_TZ
+                    .with_ymd_and_hms(
+                        year.clone(),
+                        month.clone() as u32,
+                        date.clone() as u32,
+                        0,
+                        0,
+                        0,
+                    )
+                    .earliest()
+                else {
+                    return Err(());
+                };
+                return Ok(nz_dt.with_timezone(&Utc).timestamp());
+            } else if let Some(captures) = &rc.time.captures(&timestamp) {
+                let Ok(int_matches) = matches_to_vecint(&captures) else { return Err(()) };
+                let (Some(Some(hours)), Some(Some(minutes)), Some(seconds)) =
+                    (int_matches.get(0), int_matches.get(1), int_matches.get(2))
+                else {
+                    return Err(());
+                };
+                let seconds = seconds.clone().unwrap_or_else(|| 0);
+                let date = Utc::now().date_naive();
+                let Some(time) = NaiveTime::from_hms_opt(
+                    hours.clone() as u32,
+                    minutes.clone() as u32,
+                    seconds as u32,
+                ) else {
+                    return Err(());
+                };
+                let timestamp = NaiveDateTime::new(date, time).and_utc().timestamp();
+                if timestamp < Utc::now().timestamp() {
+                    return Ok(timestamp + DAY_IN_SECONDS);
+                }
+                return Ok(timestamp);
             } else if let Some(captures) = &rc.relative_minutes.captures(&timestamp) {
                 let minutes = match_to_int(captures)?;
                 let Some(seconds) = minutes.checked_mul(60) else {
                     return Err(());
                 };
-                return Ok(Utc::now().timestamp() + seconds as i64)
+                return Ok(Utc::now().timestamp() + seconds as i64);
             } else if let Some(captures) = &rc.unix_timestamp.captures(&timestamp) {
-                return match_to_int(captures).map(|t| t as i64)
-            }
-
-            else {
+                return match_to_int(captures).map(|t| t as i64);
+            } else {
                 return Err(());
             };
         }
         // 2 => {
         //
         // }
-        _ => return Err(())
+        _ => return Err(()),
     }
 }
 
