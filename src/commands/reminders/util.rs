@@ -20,7 +20,23 @@ pub struct Reminder {
     pub message: String,
 }
 
-fn relative_matches_to_seconds(captures: Captures) -> Result<i32, &str> {
+fn matches_to_vecint(captures: Captures) -> Result<Vec<Option<i32>>, ()> {
+    let mut int_matches = Vec::new();
+    for capture in captures.iter().skip(1) {
+        match capture {
+            Some(c) => {
+                let Ok(parsed_amount) = c.as_str().parse::<i32>() else {
+                    return Err(());
+                };
+                int_matches.push(Some(parsed_amount))
+            }
+            None => int_matches.push(None),
+        }
+    }
+    Ok(int_matches)
+}
+
+fn relative_matches_to_seconds(captures: Captures) -> Result<i32, ()> {
     let second_conversions: [i32; 7] = [31557600, 2629800, 604800, 86400, 3600, 60, 1]; // year, month, week, day, hour, minute, second
     let mut seconds: i32 = 0;
     for (i, c) in captures.iter().skip(1).enumerate() {
@@ -28,33 +44,42 @@ fn relative_matches_to_seconds(captures: Captures) -> Result<i32, &str> {
             continue;
         };
         let Ok(parsed_length) = c.as_str().parse::<i32>() else {
-            return Err("Duration too long!");
+            return Err(());
         };
         let Some(parsed_seconds) = parsed_length.checked_mul(second_conversions[i]) else {
-            return Err("Duration too long!");
+            return Err(());
         };
         if seconds.checked_add(parsed_seconds).is_none() {
-            return Err("Duration too long!");
+            return Err(());
         };
         seconds += parsed_seconds;
     }
     if seconds > 34560000 {
-        return Err("Duration too long!");
+        return Err(());
     };
     Ok(seconds)
 }
 
-pub fn parse_timestamp(data: &Arc<Data>, timestamp: String) -> Result<i64, Error> {
+pub fn parse_timestamp(data: &Arc<Data>, timestamp: String) -> Result<i64, ()> {
     let regex_cache = &data.regex_cache;
     let relative_time = &regex_cache.relative_time;
-    let Some(captures) = relative_time.captures(&timestamp) else {
-        return Err("".into());
-    };
-    let seconds = relative_matches_to_seconds(captures)?;
-    Ok(Utc::now().timestamp() + seconds as i64)
+
+    match timestamp.split_whitespace().count() {
+        1 => {
+            let Some(captures) = relative_time.captures(&timestamp) else {
+                return Err(());
+            };
+            let seconds = relative_matches_to_seconds(captures)?;
+            Ok(Utc::now().timestamp() + seconds as i64)
+        }
+        // 2 => {
+        //
+        // }
+        _ => return Err(())
+    }
 }
 
-pub fn cache_reminder(data: &Arc<Data>, r: &mut Reminder) -> () {
+pub fn cache_reminder(data: &Arc<Data>, r: &mut Reminder) {
     let mut next_reminder = data.next_reminder.lock().unwrap();
     if let Some(stored_reminder) = &mut *next_reminder {
         if r.timestamp < stored_reminder.timestamp {

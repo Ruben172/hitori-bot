@@ -23,6 +23,21 @@ pub struct Data {
 pub struct RegexCache {
     /// n years, n Months, n weeks, n days, n hours, n minutes, n seconds
     relative_time: Regex,
+    /// yyyyMMdd hhmmss
+    datetime_ymd: Regex,
+    /// ddMMyyyy hhmmss
+    datetime_dmy: Regex,
+    /// yyyyMMdd
+    date_ymd: Regex,
+    /// ddmmyyyy
+    date_dmy: Regex,
+    /// hhmmss
+    time: Regex,
+    /// n minutes
+    relative_minutes: Regex,
+    /// epoch time or discord timestamp
+    unix_timestamp: Regex,
+
 }
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Arc<Data>, Error>;
@@ -40,7 +55,14 @@ async fn main() {
         | serenity::GatewayIntents::GUILD_MEMBERS;
 
     let regex_cache = RegexCache {
-        relative_time: Regex::new(r"^(?:(\d+)(?:y|Y)(?:[a-zA-Z]+)?)?(?:(\d+)(?:M|mo)(?:[a-zA-Z]+)?)?(?:(\d+)(?:w|W)(?:[a-zA-Z]+)?)?(?:(\d+)(?:d|D)(?:[a-zA-Z]+)?)?(?:(\d+)(?:h|H)(?:[a-zA-Z]+)?)?(?:(\d+)(?:m)(?:[a-zA-Z]+)?)?(?:(\d+)(?:s|S)(?:[a-zA-Z]+)?)?$").unwrap()
+        relative_time: Regex::new(r"^(?:(\d+)[yY](?:[a-zA-Z]+)?)?(?:(\d+)(?:M|mo)(?:[a-zA-Z]+)?)?(?:(\d+)[wW](?:[a-zA-Z]+)?)?(?:(\d+)[dD](?:[a-zA-Z]+)?)?(?:(\d+)[hH](?:[a-zA-Z]+)?)?(?:(\d+)m(?:[a-zA-Z]+)?)?(?:(\d+)[sS](?:[a-zA-Z]+)?)?$").unwrap(),
+        datetime_ymd: Regex::new(r"(2\d{3})[/\-.](1[012]|0?[1-9])[/\-.](3[01]|[12]\d|0?[1-9]) (2[0123]|1\d|0?\d):([12345]\d|0?\d)(?::([12345]\d|0?\d))?").unwrap(),
+        datetime_dmy: Regex::new(r"(3[01]|[12]\d|0?[1-9])[/\-.](1[012]|0?[1-9])(?:[/\-.](2\d{3}|\d{2}))? (2[0123]|1\d|0?\d):([12345]\d|0?\d)(?::([12345]\d|0?\d))?").unwrap(),
+        date_ymd: Regex::new(r"(2\d{3})[/\-.](1[012]|0?[1-9])[/\-.](3[01]|[12]\d|0?[1-9])").unwrap(),
+        date_dmy: Regex::new(r"(3[01]|[12]\d|0?[1-9])[/\-.](1[012]|0?[1-9])(?:[/\-.](2\d{3}|\d{2}))?").unwrap(),
+        time: Regex::new(r"(2[0123]|1\d|0?\d):([12345]\d|0?\d)(?::([12345]\d|0?\d))?").unwrap(),
+        relative_minutes: Regex::new(r"(\d{1,6})").unwrap(),
+        unix_timestamp: Regex::new(r"(?:<.:)?(\d{10,16})(?:(?::.)?>)?").unwrap(),
     };
     let pool = SqlitePool::connect(&database_url).await.unwrap();
     let data = Arc::new(Data { regex_cache, next_reminder: Mutex::new(None), pool });
