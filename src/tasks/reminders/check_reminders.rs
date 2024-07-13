@@ -5,7 +5,6 @@ use poise::serenity_prelude::{Context, CreateEmbed, CreateEmbedAuthor, CreateMes
 use sqlx::query;
 use std::fmt::Write;
 use std::sync::Arc;
-use tracing;
 
 pub async fn check_reminders(ctx: &Context, data: &Arc<Data>) {
     let Some(reminder) = &mut data.next_reminder.lock().unwrap().clone() else {
@@ -46,16 +45,17 @@ pub async fn check_reminders(ctx: &Context, data: &Arc<Data>) {
         ));
         let mut ping_content = String::new();
         for no_dm_user in dm_disabled_users {
-            write!(ping_content, "<@{no_dm_user}> ").unwrap()
+            write!(ping_content, "<@{no_dm_user}> ").unwrap();
         }
         let _ = FALLBACK_CHANNEL
             .send_message(ctx, CreateMessage::new().embed(embed).content(ping_content))
             .await; // continue even if it can't send the message
     }
 
-    if let Err(_) = query!("UPDATE reminders SET active = 0 WHERE id = ?", reminder.id)
+    if query!("UPDATE reminders SET active = 0 WHERE id = ?", reminder.id)
         .execute(&data.pool)
         .await
+        .is_err()
     {
         tracing::warn!("{} failed to remove from database", reminder.id.unwrap());
     };

@@ -25,7 +25,7 @@ pub async fn remindme(
     if check_author_reminder_count(ctx).await.is_err() {
         return Ok(());
     }
-    let Ok(unix_timestamp) = parse_timestamp(&ctx.data(), timestamp) else {
+    let Ok(unix_timestamp) = parse_timestamp(ctx.data(), &timestamp) else {
         send_ephemeral_text(ctx, "Invalid timestamp.").await?;
         return Ok(());
     };

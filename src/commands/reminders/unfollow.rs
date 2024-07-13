@@ -34,7 +34,7 @@ pub async fn unfollow(
     let serialized_user_ids = serialize_user_ids(&user_ids);
     let title: String;
     let ephemeral: bool;
-    if user_ids.len() > 0 {
+    if !user_ids.is_empty() {
         query!("UPDATE reminders SET user_ids = ? WHERE id = ?", serialized_user_ids, reminder_id)
             .execute(&ctx.data().pool)
             .await?;
@@ -44,7 +44,7 @@ pub async fn unfollow(
                 stored_reminder.user_ids = user_ids;
             }
         };
-        title = format!("You will no longer be notified for reminder #{}", reminder_id);
+        title = format!("You will no longer be notified for reminder #{reminder_id}");
         ephemeral = true;
     } else {
         query!("UPDATE reminders SET active = 0 WHERE id = ?", reminder_id)
@@ -59,9 +59,9 @@ pub async fn unfollow(
             };
         }
         if let Some(mut reminder) = get_next_reminder(&ctx.data().pool).await {
-            cache_reminder(&ctx.data(), &mut reminder);
+            cache_reminder(ctx.data(), &mut reminder);
         }
-        title = format!("Reminder #{} has been removed.", reminder_id);
+        title = format!("Reminder #{reminder_id} has been removed.");
         ephemeral = false;
     }
 

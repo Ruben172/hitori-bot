@@ -7,7 +7,7 @@ use poise::serenity_prelude::{
 use poise::CreateReply;
 
 fn create_page_embed(
-    ctx: Context<'_>, pages: Vec<Vec<String>>, title: String, page: usize,
+    ctx: Context<'_>, pages: &[Vec<String>], title: String, page: usize,
 ) -> CreateEmbed {
     CreateEmbed::default()
         .color(BOT_COLOR)
@@ -25,23 +25,23 @@ fn create_page_embed(
 }
 
 pub async fn paginate(
-    ctx: Context<'_>, pages: Vec<Vec<String>>, title: String, mut page: usize,
+    ctx: Context<'_>, pages: &[Vec<String>], title: String, mut page: usize,
 ) -> Result<(), Error> {
     // Define some unique identifiers for the navigation buttons
     let ctx_id = ctx.id();
     if page >= pages.len() {
         page = 0;
     }
-    let prev_button_id = format!("{}prev", ctx_id);
-    let next_button_id = format!("{}next", ctx_id);
+    let prev_button_id = format!("{ctx_id}prev");
+    let next_button_id = format!("{ctx_id}next");
 
     // Send the embed with the first page as content
     let mut reply = {
         CreateReply::default().embed(create_page_embed(
             ctx,
-            pages.clone(),
+            pages,
             title.clone(),
-            page.clone(),
+            page,
         ))
     };
 
@@ -58,7 +58,7 @@ pub async fn paginate(
                 name: Some("bwaaa_right".into()),
             }),
         ]);
-        reply = reply.components(vec![components])
+        reply = reply.components(vec![components]);
     }
 
     ctx.send(reply).await?;
@@ -91,9 +91,9 @@ pub async fn paginate(
                 CreateInteractionResponse::UpdateMessage(
                     CreateInteractionResponseMessage::new().embed(create_page_embed(
                         ctx,
-                        pages.clone(),
+                        pages,
                         title.clone(),
-                        page.clone(),
+                        page,
                     )),
                 ),
             )

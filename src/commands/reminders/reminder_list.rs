@@ -19,7 +19,7 @@ pub async fn reminder_list(
 ) -> Result<(), Error> {
     let author_id = ctx.author().id.get() as i64;
     let reminders = query!(r"SELECT id, message, timestamp, channel_id, message_id FROM reminders WHERE user_ids LIKE '%'||?||'%' AND active = 1 ORDER BY timestamp ASC", author_id).fetch_all(&ctx.data().pool).await?;
-    if reminders.len() == 0 {
+    if reminders.is_empty() {
         ctx.say("You have no active reminders.").await?;
         return Ok(());
     }
@@ -35,7 +35,7 @@ pub async fn reminder_list(
 
     paginate(
         ctx,
-        reminder_pages,
+        &reminder_pages,
         format!("Active reminders for {}", ctx.author().name),
         start_page.unwrap_or_default(),
     )

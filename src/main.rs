@@ -1,3 +1,16 @@
+#![warn(clippy::pedantic)]
+#![allow(
+    clippy::similar_names,
+    clippy::unreadable_literal,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_truncation,
+    clippy::single_match_else,
+    clippy::if_not_else,
+    clippy::cast_lossless,
+    clippy::module_name_repetitions
+)]
+
 mod commands;
 mod tasks;
 mod util;
@@ -37,7 +50,6 @@ pub struct RegexCache {
     relative_minutes: Regex,
     /// epoch time or discord timestamp
     unix_timestamp: Regex,
-
 }
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Arc<Data>, Error>;
