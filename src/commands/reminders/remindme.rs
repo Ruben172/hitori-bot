@@ -1,35 +1,9 @@
-use crate::commands::reminders::util::{check_author_reminder_count, serialize_reminder, Reminder};
+use crate::commands::reminders::util::{check_author_reminder_count, serialize_reminder, Reminder, parse_timestamp};
 use crate::commands::util::{message_id_from_ctx, referenced_from_ctx};
 use crate::util::send_ephemeral_text;
 use crate::{Context, Error, BOT_COLOR};
-use chrono::Utc;
 use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter};
 use poise::CreateReply;
-use regex::Captures;
-
-fn relative_matches_to_seconds(captures: Captures) -> Result<i32, &str> {
-    let second_conversions: [i32; 7] = [31557600, 2629800, 604800, 86400, 3600, 60, 1]; // year, month, week, day, hour, minute, second
-    let mut seconds: i32 = 0;
-    for (i, c) in captures.iter().skip(1).enumerate() {
-        let Some(c) = c else {
-            continue;
-        };
-        let Ok(parsed_length) = c.as_str().parse::<i32>() else {
-            return Err("Duration too long!");
-        };
-        let Some(parsed_seconds) = parsed_length.checked_mul(second_conversions[i]) else {
-            return Err("Duration too long!");
-        };
-        if seconds.checked_add(parsed_seconds).is_none() {
-            return Err("Duration too long!");
-        };
-        seconds += parsed_seconds;
-    }
-    if seconds > 34560000 {
-        return Err("Duration too long!");
-    };
-    Ok(seconds)
-}
 
 /// Create a reminder
 ///
@@ -48,16 +22,10 @@ pub async fn remindme(
     if check_author_reminder_count(ctx).await.is_err() {
         return Ok(());
     }
-
-    let regex_cache = &ctx.data().regex_cache;
-    let relative_time = &regex_cache.relative_time;
-    let Some(captures) = relative_time.captures(&timestamp) else {
+    let Ok(unix_timestamp) = parse_timestamp(&ctx.data(), timestamp) else {
         send_ephemeral_text(ctx, "Invalid timestamp.").await?;
         return Ok(());
     };
-    let seconds = relative_matches_to_seconds(captures)?;
-    let unix_timestamp = Utc::now().timestamp() + seconds as i64;
-
     if let Some(reference) = referenced_from_ctx(ctx) {
         if message.is_none() && !reference.content.is_empty() {
             message = Some(reference.content);

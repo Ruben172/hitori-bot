@@ -2,7 +2,8 @@ use crate::{Context, Data, Error};
 use poise::serenity_prelude::{ChannelId, MessageId, UserId};
 use sqlx::{query, SqlitePool};
 use std::sync::Arc;
-
+use chrono::Utc;
+use regex::Captures;
 use crate::util::send_ephemeral_text;
 use serde_json;
 
@@ -17,6 +18,40 @@ pub struct Reminder {
     pub channel_id: ChannelId,
     pub message_id: MessageId,
     pub message: String,
+}
+
+fn relative_matches_to_seconds(captures: Captures) -> Result<i32, &str> {
+    let second_conversions: [i32; 7] = [31557600, 2629800, 604800, 86400, 3600, 60, 1]; // year, month, week, day, hour, minute, second
+    let mut seconds: i32 = 0;
+    for (i, c) in captures.iter().skip(1).enumerate() {
+        let Some(c) = c else {
+            continue;
+        };
+        let Ok(parsed_length) = c.as_str().parse::<i32>() else {
+            return Err("Duration too long!");
+        };
+        let Some(parsed_seconds) = parsed_length.checked_mul(second_conversions[i]) else {
+            return Err("Duration too long!");
+        };
+        if seconds.checked_add(parsed_seconds).is_none() {
+            return Err("Duration too long!");
+        };
+        seconds += parsed_seconds;
+    }
+    if seconds > 34560000 {
+        return Err("Duration too long!");
+    };
+    Ok(seconds)
+}
+
+pub fn parse_timestamp(data: &Arc<Data>, timestamp: String) -> Result<i64, Error> {
+    let regex_cache = &data.regex_cache;
+    let relative_time = &regex_cache.relative_time;
+    let Some(captures) = relative_time.captures(&timestamp) else {
+        return Err("".into());
+    };
+    let seconds = relative_matches_to_seconds(captures)?;
+    Ok(Utc::now().timestamp() + seconds as i64)
 }
 
 pub fn cache_reminder(data: &Arc<Data>, r: &mut Reminder) -> () {
