@@ -56,13 +56,13 @@ async fn main() {
 
     let regex_cache = RegexCache {
         relative_time: Regex::new(r"^(?:(\d+)[yY](?:[a-zA-Z]+)?)?(?:(\d+)(?:M|mo)(?:[a-zA-Z]+)?)?(?:(\d+)[wW](?:[a-zA-Z]+)?)?(?:(\d+)[dD](?:[a-zA-Z]+)?)?(?:(\d+)[hH](?:[a-zA-Z]+)?)?(?:(\d+)m(?:[a-zA-Z]+)?)?(?:(\d+)[sS](?:[a-zA-Z]+)?)?$").unwrap(),
-        datetime_ymd: Regex::new(r"(2\d{3})[/\-.](1[012]|0?[1-9])[/\-.](3[01]|[12]\d|0?[1-9]) (2[0123]|1\d|0?\d):([12345]\d|0?\d)(?::([12345]\d|0?\d))?").unwrap(),
-        datetime_dmy: Regex::new(r"(3[01]|[12]\d|0?[1-9])[/\-.](1[012]|0?[1-9])(?:[/\-.](2\d{3}|\d{2}))? (2[0123]|1\d|0?\d):([12345]\d|0?\d)(?::([12345]\d|0?\d))?").unwrap(),
-        date_ymd: Regex::new(r"(2\d{3})[/\-.](1[012]|0?[1-9])[/\-.](3[01]|[12]\d|0?[1-9])").unwrap(),
-        date_dmy: Regex::new(r"(3[01]|[12]\d|0?[1-9])[/\-.](1[012]|0?[1-9])(?:[/\-.](2\d{3}|\d{2}))?").unwrap(),
-        time: Regex::new(r"(2[0123]|1\d|0?\d):([12345]\d|0?\d)(?::([12345]\d|0?\d))?").unwrap(),
-        relative_minutes: Regex::new(r"(\d{1,6})").unwrap(),
-        unix_timestamp: Regex::new(r"(?:<.:)?(\d{10,16})(?:(?::.)?>)?").unwrap(),
+        datetime_ymd: Regex::new(r"^(2\d{3})[/\-.](1[012]|0?[1-9])[/\-.](3[01]|[12]\d|0?[1-9]) (2[0123]|1\d|0?\d):([12345]\d|0?\d)(?::([12345]\d|0?\d))?$").unwrap(),
+        datetime_dmy: Regex::new(r"^(3[01]|[12]\d|0?[1-9])[/\-.](1[012]|0?[1-9])(?:[/\-.](2\d{3}|\d{2}))? (2[0123]|1\d|0?\d):([12345]\d|0?\d)(?::([12345]\d|0?\d))?$").unwrap(),
+        date_ymd: Regex::new(r"^(2\d{3})[/\-.](1[012]|0?[1-9])[/\-.](3[01]|[12]\d|0?[1-9])$").unwrap(),
+        date_dmy: Regex::new(r"^(3[01]|[12]\d|0?[1-9])[/\-.](1[012]|0?[1-9])(?:[/\-.](2\d{3}|\d{2}))?$").unwrap(),
+        time: Regex::new(r"^(2[0123]|1\d|0?\d):([12345]\d|0?\d)(?::([12345]\d|0?\d))?$").unwrap(),
+        relative_minutes: Regex::new(r"^(\d{1,6})$").unwrap(),
+        unix_timestamp: Regex::new(r"^(?:<.:)?(\d{10,16})(?:(?::.)?>)?$").unwrap(),
     };
     let pool = SqlitePool::connect(&database_url).await.unwrap();
     let data = Arc::new(Data { regex_cache, next_reminder: Mutex::new(None), pool });

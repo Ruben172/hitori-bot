@@ -1,9 +1,12 @@
+use chrono::Utc;
 use crate::commands::reminders::util::{check_author_reminder_count, serialize_reminder, Reminder, parse_timestamp};
 use crate::commands::util::{message_id_from_ctx, referenced_from_ctx};
 use crate::util::send_ephemeral_text;
 use crate::{Context, Error, BOT_COLOR};
 use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter};
 use poise::CreateReply;
+
+const MAX_REMINDER_SECONDS: i64 = 34560000;
 
 /// Create a reminder
 ///
@@ -24,6 +27,10 @@ pub async fn remindme(
     }
     let Ok(unix_timestamp) = parse_timestamp(&ctx.data(), timestamp) else {
         send_ephemeral_text(ctx, "Invalid timestamp.").await?;
+        return Ok(());
+    };
+    if unix_timestamp > Utc::now().timestamp() + MAX_REMINDER_SECONDS {
+        send_ephemeral_text(ctx, "Reminder duration too long.").await?;
         return Ok(());
     };
     if let Some(reference) = referenced_from_ctx(ctx) {

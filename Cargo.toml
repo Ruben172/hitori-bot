@@ -11,6 +11,7 @@ poise = "0.6"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 regex = "1.10"
 chrono = "0.4"
+chrono-tz = "0.9"
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
 to-arraystring = "0.2"
 arrayvec = "0.7"

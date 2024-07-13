@@ -2,12 +2,16 @@ use crate::{Context, Data, Error};
 use poise::serenity_prelude::{ChannelId, MessageId, UserId};
 use sqlx::{query, SqlitePool};
 use std::sync::Arc;
-use chrono::Utc;
+use chrono::format::Parsed;
+use chrono::{NaiveDate, NaiveDateTime, TimeZone, Utc};
+use chrono_tz::Tz;
 use regex::Captures;
 use crate::util::send_ephemeral_text;
 use serde_json;
+use tracing_subscriber::fmt::time;
 
 const MAX_REMINDERS: i32 = 25;
+const NZ_TZ: Tz = chrono_tz::NZ;
 
 #[derive(Debug, Clone)]
 pub struct Reminder {
@@ -20,7 +24,7 @@ pub struct Reminder {
     pub message: String,
 }
 
-fn matches_to_vecint(captures: Captures) -> Result<Vec<Option<i32>>, ()> {
+fn matches_to_vecint(captures: &Captures) -> Result<Vec<Option<i32>>, ()> {
     let mut int_matches = Vec::new();
     for capture in captures.iter().skip(1) {
         match capture {
@@ -36,17 +40,25 @@ fn matches_to_vecint(captures: Captures) -> Result<Vec<Option<i32>>, ()> {
     Ok(int_matches)
 }
 
-fn relative_matches_to_seconds(captures: Captures) -> Result<i32, ()> {
+fn match_to_int(captures: &Captures) -> Result<i32, ()> {
+    let Some(capture) = captures.get(1) else {
+        return Err(())
+    };
+    let Ok(parsed_amount) = capture.as_str().parse::<i32>() else {
+        return Err(());
+    };
+    Ok(parsed_amount)
+}
+
+fn relative_matches_to_seconds(captures: &Captures) -> Result<i32, ()> {
     let second_conversions: [i32; 7] = [31557600, 2629800, 604800, 86400, 3600, 60, 1]; // year, month, week, day, hour, minute, second
     let mut seconds: i32 = 0;
-    for (i, c) in captures.iter().skip(1).enumerate() {
-        let Some(c) = c else {
+
+    for (i, capture) in matches_to_vecint(captures)?.iter().enumerate() {
+        let Some(c) = capture else {
             continue;
         };
-        let Ok(parsed_length) = c.as_str().parse::<i32>() else {
-            return Err(());
-        };
-        let Some(parsed_seconds) = parsed_length.checked_mul(second_conversions[i]) else {
+        let Some(parsed_seconds) = c.checked_mul(second_conversions[i]) else {
             return Err(());
         };
         if seconds.checked_add(parsed_seconds).is_none() {
@@ -54,23 +66,45 @@ fn relative_matches_to_seconds(captures: Captures) -> Result<i32, ()> {
         };
         seconds += parsed_seconds;
     }
-    if seconds > 34560000 {
-        return Err(());
-    };
     Ok(seconds)
 }
 
 pub fn parse_timestamp(data: &Arc<Data>, timestamp: String) -> Result<i64, ()> {
-    let regex_cache = &data.regex_cache;
-    let relative_time = &regex_cache.relative_time;
+    let rc = &data.regex_cache;
 
     match timestamp.split_whitespace().count() {
         1 => {
-            let Some(captures) = relative_time.captures(&timestamp) else {
+            if let Some(captures) = &rc.relative_time.captures(&timestamp) {
+                let seconds = relative_matches_to_seconds(captures)?;
+                return Ok(Utc::now().timestamp() + seconds as i64)
+            } else if let Some(captures) = &rc.date_ymd.captures(&timestamp) {
+                let Ok(int_matches) = matches_to_vecint(&captures) else {
+                    return Err(())
+                };
+                let (Some(Some(year)), Some(Some(month)), Some(Some(date))) = (int_matches.get(0), int_matches.get(1), int_matches.get(2)) else {
+                    return Err(())
+                };
+                let Some(nz_dt) = NZ_TZ.with_ymd_and_hms(year.clone(), month.clone() as u32, date.clone() as u32, 0, 0, 0).earliest() else {
+                    return Err(())
+                };
+                return Ok(nz_dt.with_timezone(&Utc).timestamp())
+            // } else if let Some(captures) = &rc.date_dmy.captures(&timestamp) {
+            //
+            // } else if let Some(captures) = &rc.time.captures(&timestamp) {
+
+            } else if let Some(captures) = &rc.relative_minutes.captures(&timestamp) {
+                let minutes = match_to_int(captures)?;
+                let Some(seconds) = minutes.checked_mul(60) else {
+                    return Err(());
+                };
+                return Ok(Utc::now().timestamp() + seconds as i64)
+            } else if let Some(captures) = &rc.unix_timestamp.captures(&timestamp) {
+                return match_to_int(captures).map(|t| t as i64)
+            }
+
+            else {
                 return Err(());
             };
-            let seconds = relative_matches_to_seconds(captures)?;
-            Ok(Utc::now().timestamp() + seconds as i64)
         }
         // 2 => {
         //
