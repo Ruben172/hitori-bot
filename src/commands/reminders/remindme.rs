@@ -48,43 +48,44 @@ pub async fn remindme(
     if check_author_reminder_count(ctx).await.is_err() {
         return Ok(());
     }
+
     let regex_cache = &ctx.data().regex_cache;
     let relative_time = &regex_cache.relative_time;
-    if let Some(captures) = relative_time.captures(&timestamp) {
-        let seconds = relative_matches_to_seconds(captures)?;
-        let timestamp = Utc::now().timestamp() + seconds as i64;
-        if let Some(reference) = referenced_from_ctx(ctx) {
-            if message.is_none() && !reference.content.is_empty() {
-                message = Some(reference.content);
-            }
-        }
-        let mut reminder = Reminder {
-            id: None,
-            timestamp,
-            created_at: ctx.created_at().unix_timestamp(),
-            user_ids: vec![ctx.author().id],
-            channel_id: ctx.channel_id(),
-            message_id: message_id_from_ctx(ctx),
-            message: message.unwrap_or("something".into()),
-        };
-        serialize_reminder(ctx, &mut reminder).await?;
-
-        let embed = CreateEmbed::new()
-            .author(CreateEmbedAuthor::from(ctx.author().clone()))
-            .color(BOT_COLOR)
-            .title(format!("Reminder #{0} created.", reminder.id.unwrap()))
-            .description(format!(
-                "I will remind you <t:{0}:R> on <t:{0}:F> about {1}",
-                reminder.timestamp, reminder.message
-            ))
-            .footer(CreateEmbedFooter::new(format!(
-                "Tip: use \"{0}follow {1}\" to also get notified for this reminder!",
-                ctx.prefix(),
-                reminder.id.unwrap()
-            )));
-        ctx.send(CreateReply::default().embed(embed)).await?;
-    } else {
+    let Some(captures) = relative_time.captures(&timestamp) else {
         send_ephemeral_text(ctx, "Invalid timestamp.").await?;
+        return Ok(());
+    };
+    let seconds = relative_matches_to_seconds(captures)?;
+    let unix_timestamp = Utc::now().timestamp() + seconds as i64;
+
+    if let Some(reference) = referenced_from_ctx(ctx) {
+        if message.is_none() && !reference.content.is_empty() {
+            message = Some(reference.content);
+        }
     }
+    let mut reminder = Reminder {
+        id: None,
+        timestamp: unix_timestamp,
+        created_at: ctx.created_at().unix_timestamp(),
+        user_ids: vec![ctx.author().id],
+        channel_id: ctx.channel_id(),
+        message_id: message_id_from_ctx(ctx),
+        message: message.unwrap_or("something".into()),
+    };
+    serialize_reminder(ctx, &mut reminder).await?;
+    let embed = CreateEmbed::new()
+        .author(CreateEmbedAuthor::from(ctx.author().clone()))
+        .color(BOT_COLOR)
+        .title(format!("Reminder #{0} created.", reminder.id.unwrap()))
+        .description(format!(
+            "I will remind you <t:{0}:R> on <t:{0}:F> about {1}",
+            reminder.timestamp, reminder.message
+        ))
+        .footer(CreateEmbedFooter::new(format!(
+            "Tip: use \"{0}follow {1}\" to also get notified for this reminder!",
+            ctx.prefix(),
+            reminder.id.unwrap()
+        )));
+    ctx.send(CreateReply::default().embed(embed)).await?;
     Ok(())
 }
