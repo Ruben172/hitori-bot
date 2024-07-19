@@ -1,11 +1,11 @@
 use crate::commands::reminders::util::{
-    check_author_reminder_count, serialize_user_ids, user_ids_from_reminder_id,
+    check_author_reminder_count, user_ids_from_reminder_id,
 };
 use crate::util::send_ephemeral_text;
 use crate::{Context, Error, BOT_COLOR};
 use poise::serenity_prelude::CreateEmbed;
 use poise::CreateReply;
-use sqlx::query;
+use sqlx::{query, query_scalar};
 
 /// Follow someone else's reminder
 ///
@@ -17,25 +17,28 @@ pub async fn follow(
     if check_author_reminder_count(ctx).await.is_err() {
         return Ok(());
     }
-    let Ok(mut user_ids) = user_ids_from_reminder_id(ctx, reminder_id).await else { return Ok(()) };
-    if user_ids.contains(&ctx.author().id) {
+    let reminder_id = reminder_id as i64;
+    let Ok(user_ids) = user_ids_from_reminder_id(&ctx.data(), reminder_id).await else {
+        send_ephemeral_text(ctx, "Reminder does not exist or has already expired.").await?;
+        return Ok(());
+    };
+    let user_id = &ctx.author().id;
+    if user_ids.contains(user_id) {
         send_ephemeral_text(ctx, "You are already following this reminder.").await?;
         return Ok(());
     }
 
-    user_ids.push(ctx.author().id);
-    let serialized_user_ids = serialize_user_ids(&user_ids);
-    query!("UPDATE reminders SET user_ids = ? WHERE ID = ?", serialized_user_ids, reminder_id)
+    let user_id = user_id.get() as i64;
+    query!(r"INSERT OR IGNORE INTO users (discord_id) VALUES (?)", user_id)
         .execute(&ctx.data().pool)
         .await?;
-    {
-        let mut next_reminder = ctx.data().next_reminder.lock().unwrap();
-        if let Some(stored_reminder) = &mut *next_reminder {
-            if stored_reminder.id == Some(reminder_id) {
-                stored_reminder.user_ids = user_ids;
-            }
-        };
-    }
+    let i_user_id = query_scalar!(r"SELECT id FROM users WHERE discord_id = ?", user_id)
+        .fetch_one(&ctx.data().pool)
+        .await?;
+    query!("INSERT INTO reminder_user (reminder_id, user_id) VALUES (?, ?)", reminder_id, i_user_id)
+        .execute(&ctx.data().pool)
+        .await?;
+
     let embed = CreateEmbed::new()
         .title(format!("You will now be notified for reminder #{reminder_id}!"))
         .color(BOT_COLOR);

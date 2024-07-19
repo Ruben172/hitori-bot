@@ -4,7 +4,6 @@ use chrono::{NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use poise::serenity_prelude::{ChannelId, MessageId, UserId};
 use regex::Captures;
-use serde_json;
 use sqlx::{query, SqlitePool};
 use std::sync::Arc;
 
@@ -165,10 +164,10 @@ pub fn parse_timestamp(data: &Arc<Data>, timestamp: &str) -> Result<i64, ()> {
     }
 }
 
-pub fn cache_reminder(data: &Arc<Data>, r: &mut Reminder) {
+pub fn cache_reminder(data: &Arc<Data>, r: i64) {
     let mut next_reminder = data.next_reminder.lock().unwrap();
-    if let Some(stored_reminder) = &mut *next_reminder {
-        if r.timestamp < stored_reminder.timestamp {
+    if let Some(stored_reminder) = *next_reminder {
+        if r < stored_reminder {
             *next_reminder = Some(r.clone());
         }
     } else {
@@ -176,60 +175,50 @@ pub fn cache_reminder(data: &Arc<Data>, r: &mut Reminder) {
     }
 }
 
-pub async fn get_next_reminder(pool: &SqlitePool) -> Option<Reminder> {
-    let next_reminder = query!("SELECT id, user_ids, message, timestamp, created_at, channel_id, message_id FROM reminders WHERE active = 1 ORDER BY timestamp ASC LIMIT 1").fetch_one(pool).await.ok();
-    next_reminder.map(|next_reminder| Reminder {
-        id: Some(next_reminder.id as u32),
-        timestamp: next_reminder.timestamp,
-        created_at: next_reminder.created_at,
-        user_ids: deserialize_user_ids(&next_reminder.user_ids),
-        channel_id: ChannelId::new(next_reminder.channel_id as u64),
-        message_id: MessageId::new(next_reminder.message_id as u64),
-        message: next_reminder.message,
-    })
+pub async fn get_next_reminder_ts(pool: &SqlitePool) -> Option<i64> {
+    let next_reminder = query!("SELECT timestamp FROM reminders WHERE active = 1 ORDER BY timestamp ASC LIMIT 1").fetch_one(pool).await.ok();
+    next_reminder.map(|x| x.timestamp)
 }
 
-pub async fn serialize_reminder(ctx: Context<'_>, r: &mut Reminder) -> Result<(), Error> {
-    let users_json = serialize_user_ids(&r.user_ids);
-    let channel_id = r.channel_id.get() as i64;
-    let message_id = r.message_id.get() as i64;
-    let id = query!("INSERT INTO reminders (user_ids, message, timestamp, created_at, channel_id, message_id) VALUES (?, ?, ?, ?, ?, ?)",
-        users_json, r.message, r.timestamp, r.created_at, channel_id, message_id).execute(&ctx.data().pool).await?.last_insert_rowid();
-    r.id = Some(id as u32);
+// pub fn serialize_user_ids(user_ids: &Vec<UserId>) -> String {
+//     serde_json::to_string(&user_ids).unwrap()
+// }
 
-    cache_reminder(ctx.data(), r);
-    Ok(())
-}
-
-pub fn serialize_user_ids(user_ids: &Vec<UserId>) -> String {
-    serde_json::to_string(&user_ids).unwrap()
-}
-
-pub fn deserialize_user_ids(users_str: &str) -> Vec<UserId> {
-    serde_json::from_str::<Vec<UserId>>(users_str).unwrap()
-}
+// pub fn deserialize_user_ids(users_str: &str) -> Vec<UserId> {
+//     serde_json::from_str::<Vec<UserId>>(users_str).unwrap()
+// }
 
 pub async fn user_ids_from_reminder_id(
-    ctx: Context<'_>, reminder_id: u32,
+    data: &Arc<Data>, reminder_id: i64,
 ) -> Result<Vec<UserId>, Error> {
-    let reminder =
-        query!("SELECT user_ids FROM reminders WHERE id = ? AND active = 1", reminder_id)
-            .fetch_one(&ctx.data().pool)
-            .await
-            .ok();
+    let reminder = query!(
+        r"SELECT discord_id 
+        FROM users u 
+        JOIN reminder_user ru ON ru.user_id = u.id
+        JOIN reminders r ON ru.reminder_id = r.id
+        WHERE r.id = ? AND active = 1",
+        reminder_id
+    )
+    .fetch_all(&data.pool)
+    .await
+    .ok();
 
     let Some(reminder) = reminder else {
-        send_ephemeral_text(ctx, "Reminder does not exist or has already expired.").await?;
+        // send_ephemeral_text(ctx, "Reminder does not exist or has already expired.").await?;
         return Err("".into());
     };
 
-    Ok(deserialize_user_ids(&reminder.user_ids))
+    Ok(reminder.into_iter().map(|x| UserId::new(x.discord_id as u64)).collect::<Vec<UserId>>())
 }
 
 pub async fn check_author_reminder_count(ctx: Context<'_>) -> Result<(), Error> {
     let author_id = ctx.author().id.get() as i64;
     let reminder_count = query!(
-        r"SELECT COUNT(*) AS count FROM reminders WHERE user_ids LIKE '%'||?||'%' AND active = 1",
+        r"SELECT COUNT(*) AS count 
+        FROM reminders r 
+        JOIN reminder_user ru ON r.id = ru.reminder_id 
+        JOIN users u on ru.user_id = u.id 
+        WHERE u.discord_id = ?",
         author_id
     )
     .fetch_one(&ctx.data().pool)

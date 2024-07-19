@@ -1,5 +1,5 @@
 use crate::commands::reminders::util::{
-    check_author_reminder_count, parse_timestamp, serialize_reminder, Reminder,
+    cache_reminder, check_author_reminder_count, parse_timestamp,
 };
 use crate::commands::util::{message_id_from_ctx, referenced_from_ctx};
 use crate::util::send_ephemeral_text;
@@ -7,6 +7,7 @@ use crate::{Context, Error, BOT_COLOR};
 use chrono::Utc;
 use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter};
 use poise::CreateReply;
+use sqlx::{query, query_scalar};
 
 const MAX_REMINDER_SECONDS: i64 = 34560000;
 
@@ -44,28 +45,65 @@ pub async fn remindme(
             message = Some(reference.content);
         }
     }
-    let mut reminder = Reminder {
-        id: None,
-        timestamp: unix_timestamp,
-        created_at: ctx.created_at().unix_timestamp(),
-        user_ids: vec![ctx.author().id],
-        channel_id: ctx.channel_id(),
-        message_id: message_id_from_ctx(ctx),
-        message: message.unwrap_or("something".into()),
-    };
-    serialize_reminder(ctx, &mut reminder).await?;
+    let message = message.unwrap_or("something".into());
+    let author_id = ctx.author().id.get() as i64;
+    let channel_id = ctx.channel_id().get() as i64;
+    let message_id = message_id_from_ctx(ctx).get() as i64;
+    let created_at = ctx.created_at().unix_timestamp();
+
+    query!(r"INSERT OR IGNORE INTO users (discord_id) VALUES (?)", author_id)
+        .execute(&ctx.data().pool)
+        .await?;
+    let i_user_id = query_scalar!(r"SELECT id FROM users WHERE discord_id = ?", author_id)
+        .fetch_one(&ctx.data().pool)
+        .await?;
+
+    query!(r"INSERT OR IGNORE INTO channels (discord_id) VALUES (?)", channel_id)
+        .execute(&ctx.data().pool)
+        .await?;
+    let i_channel_id = query_scalar!(r"SELECT id FROM channels WHERE discord_id = ?", channel_id)
+        .fetch_one(&ctx.data().pool)
+        .await?;
+
+    let reminder_id = query!(
+        "INSERT INTO reminders (message, timestamp, created_at, message_id) VALUES (?, ?, ?, ?)",
+        message,
+        unix_timestamp,
+        created_at,
+        message_id
+    )
+    .execute(&ctx.data().pool)
+    .await?
+    .last_insert_rowid();
+
+    query!(
+        r"INSERT INTO reminder_user (reminder_id, user_id) VALUES (?, ?)",
+        reminder_id,
+        i_user_id
+    )
+    .execute(&ctx.data().pool)
+    .await?;
+    query!(
+        r"INSERT INTO reminder_channel (reminder_id, channel_id) VALUES (?, ?)",
+        reminder_id,
+        i_channel_id
+    )
+    .execute(&ctx.data().pool)
+    .await?;
+
+    cache_reminder(ctx.data(), unix_timestamp);
     let embed = CreateEmbed::new()
         .author(CreateEmbedAuthor::from(ctx.author().clone()))
         .color(BOT_COLOR)
-        .title(format!("Reminder #{0} created.", reminder.id.unwrap()))
+        .title(format!("Reminder #{0} created.", reminder_id))
         .description(format!(
             "I will remind you <t:{0}:R> on <t:{0}:F> about {1}",
-            reminder.timestamp, reminder.message
+            unix_timestamp, message
         ))
         .footer(CreateEmbedFooter::new(format!(
             "Tip: use \"{0}follow {1}\" to also get notified for this reminder!",
             ctx.prefix(),
-            reminder.id.unwrap()
+            reminder_id
         )));
     ctx.send(CreateReply::default().embed(embed)).await?;
     Ok(())

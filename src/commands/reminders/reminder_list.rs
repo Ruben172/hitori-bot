@@ -18,14 +18,25 @@ pub async fn reminder_list(
     ctx: Context<'_>, #[description = "The page to start on"] start_page: Option<usize>,
 ) -> Result<(), Error> {
     let author_id = ctx.author().id.get() as i64;
-    let reminders = query!(r"SELECT id, message, timestamp, channel_id, message_id FROM reminders WHERE user_ids LIKE '%'||?||'%' AND active = 1 ORDER BY timestamp ASC", author_id).fetch_all(&ctx.data().pool).await?;
+    let reminders = query!(
+        r"SELECT r.id, message, timestamp, c.discord_id AS discord_channel_id, message_id
+        FROM reminders r
+        JOIN reminder_user ru ON r.id = ru.reminder_id
+        JOIN users u on ru.user_id = u.id
+        JOIN reminder_channel rc ON r.id = rc.reminder_id
+        JOIN channels c on rc.channel_id = c.id
+        WHERE u.discord_id = ? AND active = 1 ORDER BY timestamp ASC",
+        author_id
+    )
+    .fetch_all(&ctx.data().pool)
+    .await?;
     if reminders.is_empty() {
         ctx.say("You have no active reminders.").await?;
         return Ok(());
     }
     let mut reminder_pages = Vec::<Vec<String>>::new();
     for (i, reminder) in reminders.iter().enumerate() {
-        let reminder_string = format!("ID: {0} · <t:{1}:f> · `{2}` ([Context](https://hitori.discord.com/channels/{GUILD_ID}/{3}/{4}))", reminder.id, reminder.timestamp, reminder.message, reminder.channel_id, reminder.channel_id);
+        let reminder_string = format!("ID: {0} · <t:{1}:f> · `{2}` ([Context](https://hitori.discord.com/channels/{GUILD_ID}/{3}/{4}))", reminder.id, reminder.timestamp, reminder.message, reminder.discord_channel_id, reminder.message_id);
         if i % PAGE_ITEMS == 0 {
             reminder_pages.push(vec![reminder_string]);
         } else {

@@ -8,13 +8,13 @@ CREATE TABLE reminders (
 );
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    discord_id INTEGER UNIQUE,
+    discord_id INTEGER NOT NULL UNIQUE,
     utc_offset INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX user_index ON users (discord_id);
 CREATE TABLE channels (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    discord_id INTEGER UNIQUE
+    discord_id INTEGER NOT NULL UNIQUE
 );
 CREATE INDEX channel_index ON channels (discord_id);
 CREATE TABLE reminder_user (
