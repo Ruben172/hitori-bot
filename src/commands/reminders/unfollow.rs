@@ -1,11 +1,11 @@
 use crate::commands::reminders::util::{
-    cache_reminder, get_next_reminder, serialize_user_ids, user_ids_from_reminder_id,
+    cache_reminder, get_next_reminder_ts, user_ids_from_reminder_id,
 };
 use crate::util::send_ephemeral_text;
 use crate::{Context, Error, BOT_COLOR};
 use poise::serenity_prelude::CreateEmbed;
 use poise::CreateReply;
-use sqlx::query;
+use sqlx::{query, query_scalar};
 
 /// Unfollow or remove a reminder
 ///
@@ -19,9 +19,14 @@ use sqlx::query;
 pub async fn unfollow(
     ctx: Context<'_>, #[description = "The reminder to stop tracking"] reminder_id: u32,
 ) -> Result<(), Error> {
-    let Ok(mut user_ids) = user_ids_from_reminder_id(ctx, reminder_id).await else { return Ok(()) };
+    let reminder_id = reminder_id as i64;
+    let Ok(mut user_ids) = user_ids_from_reminder_id(&ctx.data(), reminder_id).await else {
+        send_ephemeral_text(ctx, "Reminder does not exist or has already expired.").await?;
+        return Ok(());
+    };
 
-    match user_ids.iter().position(|&x| x == ctx.author().id) {
+    let user_id = ctx.author().id;
+    match user_ids.iter().position(|&x| x == user_id) {
         Some(item) => user_ids.remove(item),
         None => {
             send_ephemeral_text(ctx, format!("You are not following this reminder. Use `{}follow {}` to follow this reminder!", ctx.prefix(), reminder_id).as_str()).await?;
@@ -29,19 +34,16 @@ pub async fn unfollow(
         }
     };
 
-    let serialized_user_ids = serialize_user_ids(&user_ids);
     let title: String;
     let ephemeral: bool;
+    let user_id = user_id.get() as i64;
+    let i_user_id = query_scalar!(r"SELECT id FROM users WHERE discord_id = ?", user_id)
+        .fetch_one(&ctx.data().pool)
+        .await?;
+    query!("DELETE FROM reminder_user WHERE reminder_id = ? AND user_id = ?", reminder_id, i_user_id)
+        .execute(&ctx.data().pool)
+        .await?;
     if !user_ids.is_empty() {
-        query!("UPDATE reminders SET user_ids = ? WHERE id = ?", serialized_user_ids, reminder_id)
-            .execute(&ctx.data().pool)
-            .await?;
-        let mut next_reminder = ctx.data().next_reminder.lock().unwrap();
-        if let Some(stored_reminder) = &mut *next_reminder {
-            if stored_reminder.id == Some(reminder_id) {
-                stored_reminder.user_ids = user_ids;
-            }
-        };
         title = format!("You will no longer be notified for reminder #{reminder_id}");
         ephemeral = true;
     } else {
@@ -50,14 +52,10 @@ pub async fn unfollow(
             .await?;
         {
             let mut next_reminder = ctx.data().next_reminder.lock().unwrap();
-            if let Some(stored_reminder) = &mut *next_reminder {
-                if stored_reminder.id == Some(reminder_id) {
-                    *next_reminder = None;
-                }
-            };
+            *next_reminder = None; // Clear the next reminder, as it is unknown whether this is the reminder being removed or not
         }
-        if let Some(mut reminder) = get_next_reminder(&ctx.data().pool).await {
-            cache_reminder(ctx.data(), &mut reminder);
+        if let Some(reminder) = get_next_reminder_ts(&ctx.data().pool).await {
+            cache_reminder(ctx.data(), reminder); // Populate the cached reminder again
         }
         title = format!("Reminder #{reminder_id} has been removed.");
         ephemeral = false;

@@ -15,7 +15,6 @@ mod commands;
 mod tasks;
 mod util;
 
-use crate::commands::reminders::util::Reminder;
 use crate::tasks::task_handler;
 use dotenvy::dotenv;
 use poise::serenity_prelude as serenity;
@@ -30,7 +29,7 @@ const FALLBACK_CHANNEL: ChannelId = ChannelId::new(1257472857974505554);
 
 pub struct Data {
     regex_cache: RegexCache,
-    next_reminder: Mutex<Option<Reminder>>,
+    next_reminder: Mutex<Option<i64>>,
     pool: SqlitePool,
 } // User data, which is stored and accessible in all command invocations
 pub struct RegexCache {
