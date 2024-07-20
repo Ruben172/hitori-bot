@@ -2,9 +2,9 @@ use crate::util::send_ephemeral_text;
 use crate::{Context, Data, Error};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
-use poise::serenity_prelude::{UserId};
+use poise::serenity_prelude::{ChannelId, UserId};
 use regex::Captures;
-use sqlx::{query, SqlitePool};
+use sqlx::{query, query_scalar, SqlitePool};
 use std::sync::Arc;
 
 const MAX_REMINDERS: i32 = 25;
@@ -165,7 +165,11 @@ pub fn cache_reminder(data: &Arc<Data>, r: i64) {
 }
 
 pub async fn get_next_reminder_ts(pool: &SqlitePool) -> Option<i64> {
-    let next_reminder = query!("SELECT timestamp FROM reminders WHERE active = 1 ORDER BY timestamp ASC LIMIT 1").fetch_one(pool).await.ok();
+    let next_reminder =
+        query!("SELECT timestamp FROM reminders WHERE active = 1 ORDER BY timestamp ASC LIMIT 1")
+            .fetch_one(pool)
+            .await
+            .ok();
     next_reminder.map(|x| x.timestamp)
 }
 
@@ -210,4 +214,26 @@ pub async fn check_author_reminder_count(ctx: Context<'_>) -> Result<(), Error> 
         return Err("".into());
     }
     Ok(())
+}
+
+pub async fn get_internal_user_id(data: &Arc<Data>, user: UserId) -> Result<i64, Error> {
+    let author_id = user.get() as i64;
+    query!(r"INSERT OR IGNORE INTO users (discord_id) VALUES (?)", author_id)
+        .execute(&data.pool)
+        .await?;
+    query_scalar!(r"SELECT id FROM users WHERE discord_id = ?", author_id)
+        .fetch_one(&data.pool)
+        .await?
+        .ok_or("".into())
+}
+
+pub async fn get_internal_channel_id(data: &Arc<Data>, channel: ChannelId) -> Result<i64, Error> {
+    let channel_id = channel.get() as i64;
+    query!(r"INSERT OR IGNORE INTO channels (discord_id) VALUES (?)", channel_id)
+        .execute(&data.pool)
+        .await?;
+    query_scalar!(r"SELECT id FROM channels WHERE discord_id = ?", channel_id)
+        .fetch_one(&data.pool)
+        .await?
+        .ok_or("".into())
 }

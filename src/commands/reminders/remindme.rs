@@ -1,13 +1,11 @@
-use crate::commands::reminders::util::{
-    cache_reminder, check_author_reminder_count, parse_timestamp,
-};
+use crate::commands::reminders::util::{cache_reminder, check_author_reminder_count, get_internal_channel_id, get_internal_user_id, parse_timestamp};
 use crate::commands::util::{message_id_from_ctx, referenced_from_ctx};
 use crate::util::send_ephemeral_text;
 use crate::{Context, Error, BOT_COLOR};
 use chrono::Utc;
 use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter};
 use poise::CreateReply;
-use sqlx::{query, query_scalar};
+use sqlx::{query};
 
 const MAX_REMINDER_SECONDS: i64 = 34560000;
 
@@ -46,24 +44,11 @@ pub async fn remindme(
         }
     }
     let message = message.unwrap_or("something".into());
-    let author_id = ctx.author().id.get() as i64;
-    let channel_id = ctx.channel_id().get() as i64;
     let message_id = message_id_from_ctx(ctx).get() as i64;
     let created_at = ctx.created_at().unix_timestamp();
 
-    query!(r"INSERT OR IGNORE INTO users (discord_id) VALUES (?)", author_id)
-        .execute(&ctx.data().pool)
-        .await?;
-    let i_user_id = query_scalar!(r"SELECT id FROM users WHERE discord_id = ?", author_id)
-        .fetch_one(&ctx.data().pool)
-        .await?;
-
-    query!(r"INSERT OR IGNORE INTO channels (discord_id) VALUES (?)", channel_id)
-        .execute(&ctx.data().pool)
-        .await?;
-    let i_channel_id = query_scalar!(r"SELECT id FROM channels WHERE discord_id = ?", channel_id)
-        .fetch_one(&ctx.data().pool)
-        .await?;
+    let i_user_id = get_internal_user_id(ctx.data(), ctx.author().id).await?;
+    let i_channel_id = get_internal_channel_id(ctx.data(), ctx.channel_id()).await?;
 
     let reminder_id = query!(
         "INSERT INTO reminders (message, timestamp, created_at, message_id) VALUES (?, ?, ?, ?)",

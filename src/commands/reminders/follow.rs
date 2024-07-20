@@ -1,11 +1,9 @@
-use crate::commands::reminders::util::{
-    check_author_reminder_count, user_ids_from_reminder_id,
-};
+use crate::commands::reminders::util::{check_author_reminder_count, get_internal_user_id, user_ids_from_reminder_id};
 use crate::util::send_ephemeral_text;
 use crate::{Context, Error, BOT_COLOR};
 use poise::serenity_prelude::CreateEmbed;
 use poise::CreateReply;
-use sqlx::{query, query_scalar};
+use sqlx::{query};
 
 /// Follow someone else's reminder
 ///
@@ -22,19 +20,13 @@ pub async fn follow(
         send_ephemeral_text(ctx, "Reminder does not exist or has already expired.").await?;
         return Ok(());
     };
-    let user_id = &ctx.author().id;
-    if user_ids.contains(user_id) {
+    let user_id = ctx.author().id;
+    if user_ids.contains(&user_id) {
         send_ephemeral_text(ctx, "You are already following this reminder.").await?;
         return Ok(());
     }
 
-    let user_id = user_id.get() as i64;
-    query!(r"INSERT OR IGNORE INTO users (discord_id) VALUES (?)", user_id)
-        .execute(&ctx.data().pool)
-        .await?;
-    let i_user_id = query_scalar!(r"SELECT id FROM users WHERE discord_id = ?", user_id)
-        .fetch_one(&ctx.data().pool)
-        .await?;
+    let i_user_id = get_internal_user_id(ctx.data(), user_id).await?;
     query!("INSERT INTO reminder_user (reminder_id, user_id) VALUES (?, ?)", reminder_id, i_user_id)
         .execute(&ctx.data().pool)
         .await?;

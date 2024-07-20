@@ -1,11 +1,9 @@
-use crate::commands::reminders::util::{
-    cache_reminder, get_next_reminder_ts, user_ids_from_reminder_id,
-};
+use crate::commands::reminders::util::{cache_reminder, get_internal_user_id, get_next_reminder_ts, user_ids_from_reminder_id};
 use crate::util::send_ephemeral_text;
 use crate::{Context, Error, BOT_COLOR};
 use poise::serenity_prelude::CreateEmbed;
 use poise::CreateReply;
-use sqlx::{query, query_scalar};
+use sqlx::{query};
 
 /// Unfollow or remove a reminder
 ///
@@ -36,10 +34,7 @@ pub async fn unfollow(
 
     let title: String;
     let ephemeral: bool;
-    let user_id = user_id.get() as i64;
-    let i_user_id = query_scalar!(r"SELECT id FROM users WHERE discord_id = ?", user_id)
-        .fetch_one(&ctx.data().pool)
-        .await?;
+    let i_user_id = get_internal_user_id(ctx.data(), ctx.author().id).await?;
     query!("DELETE FROM reminder_user WHERE reminder_id = ? AND user_id = ?", reminder_id, i_user_id)
         .execute(&ctx.data().pool)
         .await?;
