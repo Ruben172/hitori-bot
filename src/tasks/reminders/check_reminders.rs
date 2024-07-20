@@ -7,7 +7,7 @@ use std::fmt::Write;
 use std::sync::Arc;
 
 pub async fn check_reminders(ctx: &Context, data: &Arc<Data>) {
-    let Some(next_timestamp) = data.next_reminder.lock().unwrap().clone() else {
+    let Some(next_timestamp) = *data.next_reminder.lock().unwrap() else {
         return;
     };
     if next_timestamp > Utc::now().timestamp() {
@@ -25,7 +25,7 @@ pub async fn check_reminders(ctx: &Context, data: &Arc<Data>) {
         JOIN reminder_channel rc ON rc.reminder_id = r.id
         JOIN channels c ON rc.channel_id = c.id
         WHERE active = 1 ORDER BY timestamp ASC LIMIT 1").fetch_one(&data.pool).await.unwrap(); // unwrap because tbh shit's joever if this fails
-    let user_ids = user_ids_from_reminder_id(&data, r.id).await.unwrap(); 
+    let user_ids = user_ids_from_reminder_id(data, r.id).await.unwrap(); 
 
     for user_id in user_ids {
         let username = match user_id.to_user(ctx).await {
@@ -72,7 +72,7 @@ pub async fn check_reminders(ctx: &Context, data: &Arc<Data>) {
     let mut stored_reminder = data.next_reminder.lock().unwrap();
     let Some(stored_reminder_timestamp) = *stored_reminder else {
         // Nothing in cache, replace with the next reminder or None
-        *stored_reminder = upcoming_reminder.clone();
+        *stored_reminder = upcoming_reminder;
         return;
     };
     if next_timestamp == stored_reminder_timestamp {

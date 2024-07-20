@@ -20,7 +20,7 @@ pub async fn unfollow(
     ctx: Context<'_>, #[description = "The reminder to stop tracking"] reminder_id: u32,
 ) -> Result<(), Error> {
     let reminder_id = reminder_id as i64;
-    let Ok(mut user_ids) = user_ids_from_reminder_id(&ctx.data(), reminder_id).await else {
+    let Ok(mut user_ids) = user_ids_from_reminder_id(ctx.data(), reminder_id).await else {
         send_ephemeral_text(ctx, "Reminder does not exist or has already expired.").await?;
         return Ok(());
     };

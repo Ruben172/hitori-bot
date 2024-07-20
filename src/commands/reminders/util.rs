@@ -157,10 +157,10 @@ pub fn cache_reminder(data: &Arc<Data>, r: i64) {
     let mut next_reminder = data.next_reminder.lock().unwrap();
     if let Some(stored_reminder) = *next_reminder {
         if r < stored_reminder {
-            *next_reminder = Some(r.clone());
+            *next_reminder = Some(r);
         }
     } else {
-        *next_reminder = Some(r.clone());
+        *next_reminder = Some(r);
     }
 }
 

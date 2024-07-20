@@ -18,7 +18,7 @@ pub async fn follow(
         return Ok(());
     }
     let reminder_id = reminder_id as i64;
-    let Ok(user_ids) = user_ids_from_reminder_id(&ctx.data(), reminder_id).await else {
+    let Ok(user_ids) = user_ids_from_reminder_id(ctx.data(), reminder_id).await else {
         send_ephemeral_text(ctx, "Reminder does not exist or has already expired.").await?;
         return Ok(());
     };

@@ -95,10 +95,9 @@ pub async fn remindme(
     let embed = CreateEmbed::new()
         .author(CreateEmbedAuthor::from(ctx.author().clone()))
         .color(BOT_COLOR)
-        .title(format!("Reminder #{0} created.", reminder_id))
+        .title(format!("Reminder #{reminder_id} created."))
         .description(format!(
-            "I will remind you <t:{0}:R> on <t:{0}:F> about {1}",
-            unix_timestamp, message
+            "I will remind you <t:{unix_timestamp}:R> on <t:{unix_timestamp}:F> about {message}"
         ))
         .footer(CreateEmbedFooter::new(format!(
             "Tip: use \"{0}follow {1}\" to also get notified for this reminder!",
