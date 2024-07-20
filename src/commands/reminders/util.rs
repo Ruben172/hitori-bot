@@ -199,7 +199,7 @@ pub async fn check_author_reminder_count(ctx: Context<'_>) -> Result<(), Error> 
         FROM reminders r 
         JOIN reminder_user ru ON r.id = ru.reminder_id 
         JOIN users u on ru.user_id = u.id 
-        WHERE u.discord_id = ?",
+        WHERE u.discord_id = ? AND active = 1",
         author_id
     )
     .fetch_one(&ctx.data().pool)
