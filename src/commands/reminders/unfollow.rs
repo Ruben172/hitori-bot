@@ -1,6 +1,4 @@
-use crate::commands::reminders::util::{
-    cache_reminder, get_internal_user_id, get_next_reminder_ts, user_ids_from_reminder_id,
-};
+use crate::commands::reminders::util::{cache_reminder, get_internal_user_id, get_next_reminder_ts, reminder_exists_and_active, user_ids_from_reminder_id};
 use crate::util::send_ephemeral_text;
 use crate::{Context, Error, BOT_COLOR};
 use poise::serenity_prelude::CreateEmbed;
@@ -20,23 +18,21 @@ pub async fn unfollow(
     ctx: Context<'_>, #[description = "The reminder to stop tracking"] reminder_id: u32,
 ) -> Result<(), Error> {
     let reminder_id = reminder_id as i64;
-    let Ok(mut user_ids) = user_ids_from_reminder_id(ctx.data(), reminder_id).await else {
+    if !reminder_exists_and_active(ctx.data(), reminder_id).await {
         send_ephemeral_text(ctx, "Reminder does not exist or has already expired.").await?;
         return Ok(());
-    };
+    }
+    let user_ids = user_ids_from_reminder_id(ctx.data(), reminder_id).await?;
 
     let user_id = ctx.author().id;
-    match user_ids.iter().position(|&x| x == user_id) {
-        Some(item) => user_ids.remove(item),
-        None => {
-            send_ephemeral_text(ctx, format!("You are not following this reminder. Use `{}follow {}` to follow this reminder!", ctx.prefix(), reminder_id).as_str()).await?;
-            return Ok(());
-        }
-    };
+    if !user_ids.contains(&user_id) {
+        send_ephemeral_text(ctx, format!("You are not following this reminder. Use `{}follow {}` to follow this reminder!", ctx.prefix(), reminder_id).as_str()).await?;
+        return Ok(());        
+    }
 
     let title: String;
     let ephemeral: bool;
-    let i_user_id = get_internal_user_id(ctx.data(), ctx.author().id).await?;
+    let i_user_id = get_internal_user_id(ctx.data(), user_id).await?;
     query!(
         "DELETE FROM reminder_user WHERE reminder_id = ? AND user_id = ?",
         reminder_id,
@@ -44,7 +40,7 @@ pub async fn unfollow(
     )
     .execute(&ctx.data().pool)
     .await?;
-    if !user_ids.is_empty() {
+    if user_ids.len() > 1 {
         title = format!("You will no longer be notified for reminder #{reminder_id}");
         ephemeral = true;
     } else {

@@ -173,6 +173,13 @@ pub async fn get_next_reminder_ts(pool: &SqlitePool) -> Option<i64> {
     next_reminder.map(|x| x.timestamp)
 }
 
+pub async fn reminder_exists_and_active(data: &Arc<Data>, reminder_id: i64) -> bool {
+    let Ok(Some(exists)) = query_scalar!(r"SELECT EXISTS(SELECT 1 FROM reminders WHERE id = ? AND active = 1)", reminder_id).fetch_one(&data.pool).await else {
+        return false
+    };
+    exists != 0
+}
+
 pub async fn user_ids_from_reminder_id(
     data: &Arc<Data>, reminder_id: i64,
 ) -> Result<Vec<UserId>, Error> {
@@ -185,14 +192,12 @@ pub async fn user_ids_from_reminder_id(
         reminder_id
     )
     .fetch_all(&data.pool)
-    .await
-    .ok();
+    .await;
 
-    let Some(reminder) = reminder else {
-        // send_ephemeral_text(ctx, "Reminder does not exist or has already expired.").await?;
-        return Err("".into());
+    let Ok(reminder) = reminder else {
+        return Err("Error fetching users".into());
     };
-
+    
     Ok(reminder.into_iter().map(|x| UserId::new(x.discord_id as u64)).collect::<Vec<UserId>>())
 }
 
