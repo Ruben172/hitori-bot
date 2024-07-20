@@ -1,9 +1,11 @@
-use crate::commands::reminders::util::{check_author_reminder_count, get_internal_user_id, user_ids_from_reminder_id};
+use crate::commands::reminders::util::{
+    check_author_reminder_count, get_internal_user_id, user_ids_from_reminder_id,
+};
 use crate::util::send_ephemeral_text;
 use crate::{Context, Error, BOT_COLOR};
 use poise::serenity_prelude::CreateEmbed;
 use poise::CreateReply;
-use sqlx::{query};
+use sqlx::query;
 
 /// Follow someone else's reminder
 ///
@@ -27,9 +29,13 @@ pub async fn follow(
     }
 
     let i_user_id = get_internal_user_id(ctx.data(), user_id).await?;
-    query!("INSERT INTO reminder_user (reminder_id, user_id) VALUES (?, ?)", reminder_id, i_user_id)
-        .execute(&ctx.data().pool)
-        .await?;
+    query!(
+        "INSERT INTO reminder_user (reminder_id, user_id) VALUES (?, ?)",
+        reminder_id,
+        i_user_id
+    )
+    .execute(&ctx.data().pool)
+    .await?;
 
     let embed = CreateEmbed::new()
         .title(format!("You will now be notified for reminder #{reminder_id}!"))

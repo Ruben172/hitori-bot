@@ -18,14 +18,14 @@ pub async fn check_reminders(ctx: &Context, data: &Arc<Data>) {
         CreateEmbedAuthor::new("Reminder notification!").icon_url(ctx.cache.current_user().face()),
     );
     let mut dm_disabled_users = Vec::new();
-    
+
     let r = query!(
         r"SELECT r.id, message, timestamp, created_at, c.discord_id AS discord_channel_id, message_id 
         FROM reminders r
         JOIN reminder_channel rc ON rc.reminder_id = r.id
         JOIN channels c ON rc.channel_id = c.id
         WHERE active = 1 ORDER BY timestamp ASC LIMIT 1").fetch_one(&data.pool).await.unwrap(); // unwrap because tbh shit's joever if this fails
-    let user_ids = user_ids_from_reminder_id(data, r.id).await.unwrap(); 
+    let user_ids = user_ids_from_reminder_id(data, r.id).await.unwrap();
 
     for user_id in user_ids {
         let username = match user_id.to_user(ctx).await {
@@ -35,11 +35,7 @@ pub async fn check_reminders(ctx: &Context, data: &Arc<Data>) {
         let embed = embed.clone().description(format!(
             "Hey {0}! <t:{1}:R> on <t:{1}:F>, you asked me to remind you of {2}.\
             \n\n[View Message](https://hitori.discord.com/channels/{GUILD_ID}/{3}/{4})",
-            username,
-            r.timestamp,
-            r.message,
-            r.discord_channel_id,
-            r.message_id
+            username, r.timestamp, r.message, r.discord_channel_id, r.message_id
         ));
         if user_id.direct_message(ctx, CreateMessage::new().embed(embed)).await.is_err() {
             dm_disabled_users.push(user_id);

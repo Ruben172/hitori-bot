@@ -1,11 +1,14 @@
-use crate::commands::reminders::util::{cache_reminder, check_author_reminder_count, get_internal_channel_id, get_internal_user_id, parse_timestamp};
+use crate::commands::reminders::util::{
+    cache_reminder, check_author_reminder_count, get_internal_channel_id, get_internal_user_id,
+    parse_timestamp,
+};
 use crate::commands::util::{message_id_from_ctx, referenced_from_ctx};
 use crate::util::send_ephemeral_text;
 use crate::{Context, Error, BOT_COLOR};
 use chrono::Utc;
 use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter};
 use poise::CreateReply;
-use sqlx::{query};
+use sqlx::query;
 
 const MAX_REMINDER_SECONDS: i64 = 34560000;
 
