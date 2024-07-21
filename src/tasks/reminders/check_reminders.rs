@@ -19,8 +19,8 @@ pub async fn check_reminders(ctx: &Context, data: &Arc<Data>) {
     );
     let mut dm_disabled_users = Vec::new();
 
-    let r = query!(
-        r"SELECT r.id, message, timestamp, created_at, c.discord_id AS discord_channel_id, message_id 
+    let r = query!( // First upcoming reminder
+        r"SELECT r.id, message, timestamp, created_at, c.discord_id AS channel_id, message_id 
         FROM reminders r
         JOIN reminder_channel rc ON rc.reminder_id = r.id
         JOIN channels c ON rc.channel_id = c.id
@@ -35,7 +35,7 @@ pub async fn check_reminders(ctx: &Context, data: &Arc<Data>) {
         let embed = embed.clone().description(format!(
             "Hey {0}! <t:{1}:R> on <t:{1}:F>, you asked me to remind you of {2}.\
             \n\n[View Message](https://hitori.discord.com/channels/{GUILD_ID}/{3}/{4})",
-            username, r.timestamp, r.message, r.discord_channel_id, r.message_id
+            username, r.timestamp, r.message, r.channel_id, r.message_id
         ));
         if user_id.direct_message(ctx, CreateMessage::new().embed(embed)).await.is_err() {
             dm_disabled_users.push(user_id);
@@ -45,7 +45,7 @@ pub async fn check_reminders(ctx: &Context, data: &Arc<Data>) {
         let embed = embed.clone().description(format!(
             "Hey! <t:{0}:R> on <t:{0}:F>, you asked me to remind you of {1}.\
             \n\n[View Message](https://hitori.discord.com/channels/{GUILD_ID}/{2}/{3})",
-            r.timestamp, r.message, r.discord_channel_id, r.message_id
+            r.timestamp, r.message, r.channel_id, r.message_id
         ));
         let mut ping_content = String::new();
         for no_dm_user in dm_disabled_users {

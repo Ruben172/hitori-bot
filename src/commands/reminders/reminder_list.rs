@@ -19,7 +19,7 @@ pub async fn reminder_list(
 ) -> Result<(), Error> {
     let author_id = ctx.author().id.get() as i64;
     let reminders = query!(
-        r"SELECT r.id, message, timestamp, c.discord_id AS discord_channel_id, message_id
+        r"SELECT r.id, message, timestamp, c.discord_id AS channel_id, message_id
         FROM reminders r
         JOIN reminder_user ru ON r.id = ru.reminder_id
         JOIN users u on ru.user_id = u.id
@@ -36,7 +36,7 @@ pub async fn reminder_list(
     }
     let mut reminder_pages = Vec::<Vec<String>>::new();
     for (i, reminder) in reminders.iter().enumerate() {
-        let reminder_string = format!("ID: {0} · <t:{1}:f> · `{2}` ([Context](https://hitori.discord.com/channels/{GUILD_ID}/{3}/{4}))", reminder.id, reminder.timestamp, reminder.message, reminder.discord_channel_id, reminder.message_id);
+        let reminder_string = format!("ID: {0} · <t:{1}:f> · `{2}` ([Context](https://hitori.discord.com/channels/{GUILD_ID}/{3}/{4}))", reminder.id, reminder.timestamp, reminder.message, reminder.channel_id, reminder.message_id);
         if i % PAGE_ITEMS == 0 {
             reminder_pages.push(vec![reminder_string]);
         } else {

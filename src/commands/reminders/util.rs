@@ -1,4 +1,3 @@
-use crate::util::send_ephemeral_text;
 use crate::{Context, Data, Error};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
@@ -7,7 +6,7 @@ use regex::Captures;
 use sqlx::{query, query_scalar, SqlitePool};
 use std::sync::Arc;
 
-const MAX_REMINDERS: i32 = 25;
+const MAX_REMINDERS: i32 = 4;
 const NZ_TZ: Tz = chrono_tz::NZ;
 const DAY_IN_SECONDS: i64 = 86400;
 
@@ -201,7 +200,7 @@ pub async fn user_ids_from_reminder_id(
     Ok(reminder.into_iter().map(|x| UserId::new(x.discord_id as u64)).collect::<Vec<UserId>>())
 }
 
-pub async fn check_author_reminder_count(ctx: Context<'_>) -> Result<(), Error> {
+pub async fn check_author_reminder_count(ctx: Context<'_>) -> Result<bool, Error> {
     let author_id = ctx.author().id.get() as i64;
     let reminder_count = query!(
         r"SELECT COUNT(*) AS count 
@@ -215,10 +214,9 @@ pub async fn check_author_reminder_count(ctx: Context<'_>) -> Result<(), Error> 
     .await?
     .count;
     if reminder_count >= MAX_REMINDERS {
-        send_ephemeral_text(ctx, "You have too many active reminders").await?;
-        return Err("".into());
+        return Err("You have too many active reminders".into());
     }
-    Ok(())
+    Ok(true)
 }
 
 pub async fn get_internal_user_id(data: &Arc<Data>, user: UserId) -> Result<i64, Error> {

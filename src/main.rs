@@ -17,8 +17,8 @@ mod util;
 
 use crate::tasks::task_handler;
 use dotenvy::dotenv;
-use poise::serenity_prelude as serenity;
-use poise::serenity_prelude::{ChannelId, Color, GuildId};
+use poise::{CreateReply, FrameworkError, serenity_prelude as serenity};
+use poise::serenity_prelude::{ChannelId, Color, CreateAllowedMentions, GuildId};
 use regex::Regex;
 use sqlx::SqlitePool;
 use std::sync::{Arc, Mutex};
@@ -85,6 +85,7 @@ async fn main() {
                 ..Default::default()
             },
             commands: commands::commands(),
+            on_error: |error| Box::pin(on_error(error)),
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {
@@ -100,4 +101,48 @@ async fn main() {
 
     let client = serenity::ClientBuilder::new(token, intents).framework(framework).await;
     client.unwrap().start().await.unwrap();
+}
+
+async fn on_error(error: FrameworkError<'_, Arc<Data>, Error>) {
+    // This is our custom error handler
+    // They are many errors that can occur, so we only handle the ones we want to customize
+    // and forward the rest to the default handler
+    match error {
+        FrameworkError::Command { error, ctx, .. } => {
+            let error = error.to_string();
+            eprintln!("An error occurred in a command: {error}");
+
+            let mentions = CreateAllowedMentions::new()
+                .everyone(false)
+                .all_roles(false)
+                .all_users(false);
+
+            let _ = ctx.send(
+                CreateReply::default()
+                    .content(error)
+                    .allowed_mentions(mentions)
+                    .ephemeral(true),
+            )
+            .await;
+            ()
+        }
+        FrameworkError::CommandCheckFailed { error, ctx, .. } => {
+            let error = error.map_or("yup".to_string(), |e| e.to_string());
+            eprintln!("Command check failed: {error}");
+
+            let mentions = CreateAllowedMentions::new()
+                .everyone(false)
+                .all_roles(false)
+                .all_users(false);
+
+            let _ = ctx.send(
+                CreateReply::default()
+                    .content(error)
+                    .allowed_mentions(mentions)
+                    .ephemeral(true),
+            )
+            .await;
+        }
+        _ => ()
+    }
 }

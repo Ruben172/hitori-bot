@@ -18,7 +18,8 @@ const MAX_REMINDER_SECONDS: i64 = 34560000;
 #[poise::command(
     slash_command,
     prefix_command,
-    aliases("rm", "rember", "reminder", "remind", "dothething", "BOCCHIDONTYOUDAREFORGET")
+    aliases("rm", "rember", "reminder", "remind", "dothething", "BOCCHIDONTYOUDAREFORGET"),
+    check="check_author_reminder_count"
 )]
 pub async fn remindme(
     ctx: Context<'_>, #[description = "When you want to be reminded"] timestamp: String,
@@ -26,9 +27,6 @@ pub async fn remindme(
     #[rest]
     mut message: Option<String>,
 ) -> Result<(), Error> {
-    if check_author_reminder_count(ctx).await.is_err() {
-        return Ok(());
-    }
     let Ok(unix_timestamp) = parse_timestamp(ctx.data(), &timestamp) else {
         send_ephemeral_text(ctx, "Invalid timestamp.").await?;
         return Ok(());
