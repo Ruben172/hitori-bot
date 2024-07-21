@@ -1,5 +1,4 @@
 use crate::commands::reminders::util::{cache_reminder, get_internal_user_id, get_next_reminder_ts, reminder_exists_and_active, user_ids_from_reminder_id};
-use crate::util::send_ephemeral_text;
 use crate::{Context, Error, BOT_COLOR};
 use poise::serenity_prelude::CreateEmbed;
 use poise::CreateReply;
@@ -19,15 +18,13 @@ pub async fn unfollow(
 ) -> Result<(), Error> {
     let reminder_id = reminder_id as i64;
     if !reminder_exists_and_active(ctx.data(), reminder_id).await {
-        send_ephemeral_text(ctx, "Reminder does not exist or has already expired.").await?;
-        return Ok(());
+        return Err("Reminder does not exist or has already expired.".into());
     }
     let user_ids = user_ids_from_reminder_id(ctx.data(), reminder_id).await?;
 
     let user_id = ctx.author().id;
     if !user_ids.contains(&user_id) {
-        send_ephemeral_text(ctx, format!("You are not following this reminder. Use `{}follow {}` to follow this reminder!", ctx.prefix(), reminder_id).as_str()).await?;
-        return Ok(());        
+        return Err("You are not following this reminder.".into());        
     }
 
     let title: String;

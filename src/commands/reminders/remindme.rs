@@ -3,7 +3,6 @@ use crate::commands::reminders::util::{
     parse_timestamp,
 };
 use crate::commands::util::{message_id_from_ctx, referenced_from_ctx};
-use crate::util::send_ephemeral_text;
 use crate::{Context, Error, BOT_COLOR};
 use chrono::Utc;
 use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter};
@@ -27,17 +26,12 @@ pub async fn remindme(
     #[rest]
     mut message: Option<String>,
 ) -> Result<(), Error> {
-    let Ok(unix_timestamp) = parse_timestamp(ctx.data(), &timestamp) else {
-        send_ephemeral_text(ctx, "Invalid timestamp.").await?;
-        return Ok(());
-    };
+    let unix_timestamp = parse_timestamp(ctx.data(), &timestamp)?;
     if unix_timestamp > Utc::now().timestamp() + MAX_REMINDER_SECONDS {
-        send_ephemeral_text(ctx, "Reminder duration too long.").await?;
-        return Ok(());
+        return Err("Reminder duration too long.".into());
     };
     if unix_timestamp < Utc::now().timestamp() {
-        send_ephemeral_text(ctx, "Reminder must be in the future!").await?;
-        return Ok(());
+        return Err("Reminder must be in the future!".into());
     }
     if let Some(reference) = referenced_from_ctx(ctx) {
         if message.is_none() && !reference.content.is_empty() {

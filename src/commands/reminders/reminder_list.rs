@@ -31,8 +31,7 @@ pub async fn reminder_list(
     .fetch_all(&ctx.data().pool)
     .await?;
     if reminders.is_empty() {
-        ctx.say("You have no active reminders.").await?;
-        return Ok(());
+        return Err("You have no active reminders.".into());
     }
     let mut reminder_pages = Vec::<Vec<String>>::new();
     for (i, reminder) in reminders.iter().enumerate() {

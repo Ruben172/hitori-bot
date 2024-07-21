@@ -97,7 +97,7 @@ pub async fn paginate(
     Ok(())
 }
 
-pub async fn send_ephemeral_text(ctx: Context<'_>, content: &str) -> Result<(), Error> {
-    ctx.send(CreateReply::default().content(content).ephemeral(true)).await?;
-    Ok(())
-}
+// pub async fn send_ephemeral_text(ctx: Context<'_>, content: &str) -> Result<(), Error> {
+//     ctx.send(CreateReply::default().content(content).ephemeral(true)).await?;
+//     Ok(())
+// }

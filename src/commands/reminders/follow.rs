@@ -2,7 +2,6 @@ use crate::commands::reminders::util::{
     check_author_reminder_count, get_internal_user_id, reminder_exists_and_active,
     user_ids_from_reminder_id,
 };
-use crate::util::send_ephemeral_text;
 use crate::{Context, Error, BOT_COLOR};
 use poise::serenity_prelude::CreateEmbed;
 use poise::CreateReply;
@@ -22,14 +21,12 @@ pub async fn follow(
 ) -> Result<(), Error> {
     let reminder_id = reminder_id as i64;
     if !reminder_exists_and_active(ctx.data(), reminder_id).await {
-        send_ephemeral_text(ctx, "Reminder does not exist or has already expired.").await?;
-        return Ok(());
+        return Err("Reminder does not exist or has already expired.".into());
     }
     let user_ids = user_ids_from_reminder_id(ctx.data(), reminder_id).await?;
     let user_id = ctx.author().id;
     if user_ids.contains(&user_id) {
-        send_ephemeral_text(ctx, "You are already following this reminder.").await?;
-        return Ok(());
+        return Err("You are already following this reminder.".into());
     }
 
     let i_user_id = get_internal_user_id(ctx.data(), user_id).await?;
