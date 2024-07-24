@@ -1,9 +1,9 @@
 use crate::commands::reminders::util::{
-    cache_reminder, check_author_reminder_count, get_internal_channel_id, get_internal_user_id,
+    cache_reminder, check_author_reminder_count,
     parse_timestamp,
 };
-use crate::commands::util::{message_id_from_ctx, referenced_from_ctx};
-use crate::{Context, Error, BOT_COLOR};
+use crate::commands::util::{get_internal_channel_id, get_internal_user_id, message_id_from_ctx, referenced_from_ctx};
+use crate::{BOT_COLOR, Context, Error};
 use chrono::Utc;
 use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter};
 use poise::CreateReply;
@@ -17,7 +17,7 @@ const MAX_REMINDER_SECONDS: i64 = 34560000;
 #[poise::command(
     slash_command,
     prefix_command,
-    aliases("rm", "rember", "reminder", "remind", "dothething", "BOCCHIDONTYOUDAREFORGET"),
+    aliases("rm", "rember", "reminder", "remind", "dothething"),
     check="check_author_reminder_count"
 )]
 pub async fn remindme(

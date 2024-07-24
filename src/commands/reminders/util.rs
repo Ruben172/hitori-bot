@@ -1,30 +1,15 @@
 use crate::{Context, Data, Error};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
-use poise::serenity_prelude::{ChannelId, UserId};
+use poise::serenity_prelude::UserId;
 use regex::Captures;
 use sqlx::{query, query_scalar, SqlitePool};
 use std::sync::Arc;
+use crate::commands::util::{matches_to_vecint, multiply_by_position};
 
 const MAX_REMINDERS: i32 = 25;
 const NZ_TZ: Tz = chrono_tz::NZ;
 const DAY_IN_SECONDS: i64 = 86400;
-
-fn matches_to_vecint(captures: &Captures) -> Result<Vec<Option<i32>>, Error> {
-    let mut int_matches = Vec::new();
-    for capture in captures.iter().skip(1) {
-        match capture {
-            Some(c) => {
-                let Ok(parsed_amount) = c.as_str().parse::<i32>() else {
-                    return Err("Failed to parse arguments".into());
-                };
-                int_matches.push(Some(parsed_amount));
-            }
-            None => int_matches.push(None),
-        }
-    }
-    Ok(int_matches)
-}
 
 fn match_to_int(captures: &Captures) -> Result<i32, Error> {
     let Some(capture) = captures.get(1) else { return Err("Invalid timestamp.".into()) };
@@ -32,27 +17,6 @@ fn match_to_int(captures: &Captures) -> Result<i32, Error> {
         return Err("Invalid timestamp.".into());
     };
     Ok(parsed_amount)
-}
-
-fn multiply_by_position(data: &[Option<i32>], table: &[i32]) -> Result<i32, Error> {
-    let mut amount: i32 = 0;
-
-    for (i, capture) in data.iter().enumerate() {
-        let Some(c) = capture else {
-            continue;
-        };
-        let Some(rhs) = table.get(i) else {
-            return Err("Failed to parse arguments".into());
-        };
-        let Some(multiplied_amount) = c.checked_mul(*rhs) else {
-            return Err("Failed to parse arguments".into());
-        };
-        if amount.checked_add(multiplied_amount).is_none() {
-            return Err("Failed to parse arguments".into());
-        };
-        amount += multiplied_amount;
-    }
-    Ok(amount)
 }
 
 pub fn date_timezone_to_timestamp(
@@ -219,24 +183,3 @@ pub async fn check_author_reminder_count(ctx: Context<'_>) -> Result<bool, Error
     Ok(true)
 }
 
-pub async fn get_internal_user_id(data: &Arc<Data>, user: UserId) -> Result<i64, Error> {
-    let author_id = user.get() as i64;
-    query!(r"INSERT OR IGNORE INTO users (discord_id) VALUES (?)", author_id)
-        .execute(&data.pool)
-        .await?;
-    query_scalar!(r"SELECT id FROM users WHERE discord_id = ?", author_id)
-        .fetch_one(&data.pool)
-        .await?
-        .ok_or("".into())
-}
-
-pub async fn get_internal_channel_id(data: &Arc<Data>, channel: ChannelId) -> Result<i64, Error> {
-    let channel_id = channel.get() as i64;
-    query!(r"INSERT OR IGNORE INTO channels (discord_id) VALUES (?)", channel_id)
-        .execute(&data.pool)
-        .await?;
-    query_scalar!(r"SELECT id FROM channels WHERE discord_id = ?", channel_id)
-        .fetch_one(&data.pool)
-        .await?
-        .ok_or("".into())
-}

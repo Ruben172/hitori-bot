@@ -1,11 +1,12 @@
 use crate::commands::reminders::util::{
-    check_author_reminder_count, get_internal_user_id, reminder_exists_and_active,
+    check_author_reminder_count, reminder_exists_and_active,
     user_ids_from_reminder_id,
 };
-use crate::{Context, Error, BOT_COLOR};
+use crate::{BOT_COLOR, Context, Error};
 use poise::serenity_prelude::CreateEmbed;
 use poise::CreateReply;
 use sqlx::query;
+use crate::commands::util::get_internal_user_id;
 
 /// Follow someone else's reminder
 ///
