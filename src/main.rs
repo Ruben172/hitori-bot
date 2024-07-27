@@ -76,7 +76,7 @@ async fn main() {
         time: Regex::new(r"^(2[0123]|1\d|0?\d)[:.]([12345]\d|0?\d)(?:[:.]([12345]\d|0?\d))?$").unwrap(),
         relative_minutes: Regex::new(r"^(\d{1,6})$").unwrap(),
         unix_timestamp: Regex::new(r"^(?:<.:)?(\d{10,16})(?:(?::.)?>)?$").unwrap(),
-        utc_offset: Regex::new(r"^(-(?:1[0-2]|0?\d?)|\+?(?:1[0-4]|0?\d?)):?(00|30|45)?$").unwrap(),
+        utc_offset: Regex::new(r"^(?:UTC|GMT)?(-(?:1[0-2]|0?\d?)|\+?(?:1[0-4]|0?\d?)):?(00|30|45)?$").unwrap(),
     };
     let pool = SqlitePool::connect(&database_url).await.unwrap();
     let data = Arc::new(Data { regex_cache, next_reminder: Mutex::new(None), pool });

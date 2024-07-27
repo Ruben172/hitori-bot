@@ -1,3 +1,4 @@
+use std::time::Duration;
 use crate::{Context, Error, BOT_COLOR};
 use poise::serenity_prelude::{
     ComponentInteractionCollector, CreateActionRow, CreateButton, CreateEmbed, CreateEmbedAuthor,
@@ -65,7 +66,7 @@ pub async fn paginate(
     while let Some(press) = ComponentInteractionCollector::new(ctx)
         .filter(move |press| press.data.custom_id.starts_with(&ctx_id.to_string()))
         // Timeout when no navigation button has been pressed for 24 hours
-        .timeout(std::time::Duration::from_secs(120))
+        .timeout(Duration::from_secs(120))
         .await
     {
         // Depending on which button was pressed, go to next or previous page
