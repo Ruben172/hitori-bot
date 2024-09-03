@@ -20,6 +20,13 @@ pub fn referenced_from_ctx(ctx: Context<'_>) -> Option<Message> {
 
 pub async fn ensure_user_in_db(data: &Arc<Data>, user: UserId) -> Result<(), Error> {
     let author_id = user.get() as i64;
+    if query_scalar!(r"SELECT COUNT(1) FROM users WHERE (discord_id) = (?)", author_id)
+        .fetch_one(&data.pool)
+        .await?
+        .eq(&1)
+    {
+        return Ok(());
+    }
     query!(r"INSERT OR IGNORE INTO users (discord_id) VALUES (?)", author_id)
         .execute(&data.pool)
         .await?;
@@ -36,6 +43,13 @@ pub async fn get_internal_user_id(data: &Arc<Data>, user: UserId) -> Result<i64,
 
 pub async fn ensure_channel_in_db(data: &Arc<Data>, channel: ChannelId) -> Result<(), Error> {
     let channel_id = channel.get() as i64;
+    if query_scalar!(r"SELECT COUNT(1) FROM channels WHERE (discord_id) = (?)", channel_id)
+        .fetch_one(&data.pool)
+        .await?
+        .eq(&1)
+    {
+        return Ok(());
+    }
     query!(r"INSERT OR IGNORE INTO channels (discord_id) VALUES (?)", channel_id)
         .execute(&data.pool)
         .await?;
@@ -100,4 +114,12 @@ pub fn parse_utc_offset(data: &Arc<Data>, offset: &str) -> Result<i32, Error> {
     let minute_conversions: [i32; 2] = [60, sign]; // first number will always be signed, second number should be multiplied by 1 and the sign
     let minutes = multiply_by_position(&matches, &minute_conversions)?;
     Ok(minutes)
+}
+
+pub async fn get_author_utc_offset(ctx: &Context<'_>) -> Result<i64, Error> {
+    ensure_user_in_db(ctx.data(), ctx.author().id).await?;
+    let author_id = ctx.author().id.get() as i64;
+    Ok(query_scalar!(r"SELECT utc_offset FROM users WHERE (discord_id) = (?)", author_id)
+        .fetch_one(&ctx.data().pool)
+        .await?)
 }

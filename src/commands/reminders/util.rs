@@ -1,6 +1,5 @@
 use crate::{Context, Data, Error};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
-use chrono_tz::Tz;
 use poise::serenity_prelude::UserId;
 use regex::Captures;
 use sqlx::{query, query_scalar, SqlitePool};
@@ -8,7 +7,6 @@ use std::sync::Arc;
 use crate::commands::util::{matches_to_vecint, multiply_by_position};
 
 const MAX_REMINDERS: i64 = 25;
-const NZ_TZ: Tz = chrono_tz::NZ;
 const DAY_IN_SECONDS: i64 = 86400;
 
 fn match_to_int(captures: &Captures) -> Result<i32, Error> {
@@ -19,13 +17,13 @@ fn match_to_int(captures: &Captures) -> Result<i32, Error> {
     Ok(parsed_amount)
 }
 
-pub fn date_timezone_to_timestamp(
-    year: i32, month: u32, day: u32, timezone: Tz,
+pub fn date_to_timestamp(
+    year: i32, month: u32, day: u32,
 ) -> Result<i64, Error> {
-    let Some(dt) = timezone.with_ymd_and_hms(year, month, day, 0, 0, 0).earliest() else {
+    let Some(dt) = Utc.with_ymd_and_hms(year, month, day, 0, 0, 0).earliest() else {
         return Err("Invalid timestamp".into());
     };
-    Ok(dt.with_timezone(&Utc).timestamp())
+    Ok(dt.timestamp())
 }
 
 pub fn parse_ymd(
@@ -55,7 +53,7 @@ pub fn parse_naivetime(data: &[Option<i32>], hour_index: usize) -> Result<NaiveT
     Ok(time)
 }
 
-pub fn parse_timestamp(data: &Arc<Data>, timestamp: &str) -> Result<i64, Error> {
+pub fn parse_timestamp(data: &Arc<Data>, timestamp: &str, offset: i64) -> Result<i64, Error> {
     let rc = &data.regex_cache;
     match timestamp.split_whitespace().count() {
         1 => {
@@ -67,16 +65,16 @@ pub fn parse_timestamp(data: &Arc<Data>, timestamp: &str) -> Result<i64, Error> 
             } else if let Some(captures) = &rc.date_ymd.captures(timestamp) {
                 let Ok(int_matches) = matches_to_vecint(captures) else { return Err("Invalid timestamp.".into()) };
                 let (year, month, day) = parse_ymd(&int_matches, 0, 2)?;
-                return date_timezone_to_timestamp(year, month, day, NZ_TZ);
+                return Ok(date_to_timestamp(year, month, day)? - offset * 60);
             } else if let Some(captures) = &rc.date_dmy.captures(timestamp) {
                 let Ok(int_matches) = matches_to_vecint(captures) else { return Err("Invalid timestamp.".into()) };
                 let (year, month, day) = parse_ymd(&int_matches, 2, 0)?;
-                return date_timezone_to_timestamp(year, month, day, NZ_TZ);
+                return Ok(date_to_timestamp(year, month, day)? - offset * 60);
             } else if let Some(captures) = &rc.time.captures(timestamp) {
                 let Ok(int_matches) = matches_to_vecint(captures) else { return Err("Invalid timestamp.".into()) };
                 let time = parse_naivetime(&int_matches, 0)?;
                 let date = Utc::now().date_naive();
-                let timestamp = NaiveDateTime::new(date, time).and_utc().timestamp();
+                let timestamp = NaiveDateTime::new(date, time).and_utc().timestamp() - offset * 60;
                 if timestamp < Utc::now().timestamp() {
                     return Ok(timestamp + DAY_IN_SECONDS);
                 }
@@ -100,7 +98,7 @@ pub fn parse_timestamp(data: &Arc<Data>, timestamp: &str) -> Result<i64, Error> 
                     return Err("Invalid timestamp.".into());
                 };
                 let time = parse_naivetime(&int_matches, 3)?;
-                return Ok(NaiveDateTime::new(date, time).and_utc().timestamp());
+                return Ok(NaiveDateTime::new(date, time).and_utc().timestamp() - offset * 60);
             } else if let Some(captures) = &rc.datetime_dmy.captures(timestamp) {
                 let Ok(int_matches) = matches_to_vecint(captures) else { return Err("Invalid timestamp.".into()) };
                 let (year, month, day) = parse_ymd(&int_matches, 2, 0)?;
@@ -108,7 +106,7 @@ pub fn parse_timestamp(data: &Arc<Data>, timestamp: &str) -> Result<i64, Error> 
                     return Err("Invalid timestamp.".into());
                 };
                 let time = parse_naivetime(&int_matches, 3)?;
-                return Ok(NaiveDateTime::new(date, time).and_utc().timestamp());
+                return Ok(NaiveDateTime::new(date, time).and_utc().timestamp() - offset * 60);
             }
             Err("Invalid timestamp.".into())
         }

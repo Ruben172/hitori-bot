@@ -2,7 +2,7 @@ use crate::commands::reminders::util::{
     cache_reminder, check_author_reminder_count,
     parse_timestamp,
 };
-use crate::commands::util::{get_internal_channel_id, get_internal_user_id, message_id_from_ctx, referenced_from_ctx};
+use crate::commands::util::{get_author_utc_offset, get_internal_channel_id, get_internal_user_id, message_id_from_ctx, referenced_from_ctx};
 use crate::{BOT_COLOR, Context, Error};
 use chrono::Utc;
 use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter};
@@ -26,7 +26,8 @@ pub async fn remindme(
     #[rest]
     mut message: Option<String>,
 ) -> Result<(), Error> {
-    let unix_timestamp = parse_timestamp(ctx.data(), &timestamp)?;
+    let offset = get_author_utc_offset(&ctx).await?;
+    let unix_timestamp = parse_timestamp(ctx.data(), &timestamp, offset)?;
     if unix_timestamp > Utc::now().timestamp() + MAX_REMINDER_SECONDS {
         return Err("Reminder duration too long.".into());
     };
