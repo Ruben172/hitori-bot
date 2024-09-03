@@ -1,9 +1,11 @@
 use crate::commands::reminders::util::{
-    cache_reminder, check_author_reminder_count,
-    parse_timestamp,
+    cache_reminder, check_author_reminder_count, parse_timestamp,
 };
-use crate::commands::util::{get_author_utc_offset, get_internal_channel_id, get_internal_user_id, message_id_from_ctx, referenced_from_ctx};
-use crate::{BOT_COLOR, Context, Error};
+use crate::commands::util::{
+    get_author_utc_offset, get_internal_channel_id, get_internal_user_id, message_id_from_ctx,
+    parse_utc_offset, referenced_from_ctx,
+};
+use crate::{Context, Error, BOT_COLOR};
 use chrono::Utc;
 use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter};
 use poise::CreateReply;
@@ -18,16 +20,20 @@ const MAX_REMINDER_SECONDS: i64 = 34560000;
     slash_command,
     prefix_command,
     aliases("rm", "rember", "reminder", "remind", "dothething"),
-    check="check_author_reminder_count"
+    check = "check_author_reminder_count"
 )]
 pub async fn remindme(
     ctx: Context<'_>, #[description = "When you want to be reminded"] timestamp: String,
     #[description = "What you would like to be reminded of"]
-    #[rest]
     mut message: Option<String>,
+    offset: Option<String>,
 ) -> Result<(), Error> {
-    let offset = get_author_utc_offset(&ctx).await?;
-    let unix_timestamp = parse_timestamp(ctx.data(), &timestamp, offset)?;
+    let parsed_offset = if let Some(offset) = offset {
+        parse_utc_offset(ctx.data(), &offset)? as i64
+    } else {
+        get_author_utc_offset(&ctx).await?
+    };
+    let unix_timestamp = parse_timestamp(ctx.data(), &timestamp, parsed_offset)?;
     if unix_timestamp > Utc::now().timestamp() + MAX_REMINDER_SECONDS {
         return Err("Reminder duration too long.".into());
     };
