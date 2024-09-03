@@ -1,8 +1,8 @@
 use crate::{Context, Data, Error};
 use poise::serenity_prelude::{ChannelId, Message, MessageId, UserId};
 use regex::Captures;
-use std::sync::Arc;
 use sqlx::{query, query_scalar};
+use std::sync::Arc;
 
 pub fn message_id_from_ctx(ctx: Context<'_>) -> MessageId {
     match ctx {
@@ -29,15 +29,14 @@ pub async fn ensure_user_in_db(data: &Arc<Data>, user: UserId) -> Result<(), Err
 pub async fn get_internal_user_id(data: &Arc<Data>, user: UserId) -> Result<i64, Error> {
     let author_id = user.get() as i64;
     ensure_user_in_db(data, user).await?;
-    query_scalar!(r"SELECT id FROM users WHERE discord_id = ?", author_id)
+    Ok(query_scalar!(r"SELECT id FROM users WHERE discord_id = ?", author_id)
         .fetch_one(&data.pool)
-        .await?
-        .ok_or("".into())
+        .await?)
 }
 
 pub async fn ensure_channel_in_db(data: &Arc<Data>, channel: ChannelId) -> Result<(), Error> {
     let channel_id = channel.get() as i64;
-    query!(r"INSERT OR IGNORE INTO users (discord_id) VALUES (?)", channel_id)
+    query!(r"INSERT OR IGNORE INTO channels (discord_id) VALUES (?)", channel_id)
         .execute(&data.pool)
         .await?;
     Ok(())
@@ -46,10 +45,9 @@ pub async fn ensure_channel_in_db(data: &Arc<Data>, channel: ChannelId) -> Resul
 pub async fn get_internal_channel_id(data: &Arc<Data>, channel: ChannelId) -> Result<i64, Error> {
     let channel_id = channel.get() as i64;
     ensure_channel_in_db(data, channel).await?;
-    query_scalar!(r"SELECT id FROM channels WHERE discord_id = ?", channel_id)
+    Ok(query_scalar!(r"SELECT id FROM channels WHERE discord_id = ?", channel_id)
         .fetch_one(&data.pool)
-        .await?
-        .ok_or("".into())
+        .await?)
 }
 
 pub fn matches_to_vecint(captures: &Captures) -> Result<Vec<Option<i32>>, Error> {

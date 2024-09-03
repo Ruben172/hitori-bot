@@ -7,7 +7,7 @@ use sqlx::{query, query_scalar, SqlitePool};
 use std::sync::Arc;
 use crate::commands::util::{matches_to_vecint, multiply_by_position};
 
-const MAX_REMINDERS: i32 = 25;
+const MAX_REMINDERS: i64 = 25;
 const NZ_TZ: Tz = chrono_tz::NZ;
 const DAY_IN_SECONDS: i64 = 86400;
 
@@ -137,7 +137,7 @@ pub async fn get_next_reminder_ts(pool: &SqlitePool) -> Option<i64> {
 }
 
 pub async fn reminder_exists_and_active(data: &Arc<Data>, reminder_id: i64) -> bool {
-    let Ok(Some(exists)) = query_scalar!(r"SELECT EXISTS(SELECT 1 FROM reminders WHERE id = ? AND active = 1)", reminder_id).fetch_one(&data.pool).await else {
+    let Ok(exists) = query_scalar!(r"SELECT EXISTS(SELECT 1 FROM reminders WHERE id = ? AND active = 1)", reminder_id).fetch_one(&data.pool).await else {
         return false
     };
     exists != 0
