@@ -13,20 +13,8 @@ use sqlx::query;
 
 const MAX_REMINDER_SECONDS: i64 = 34560000;
 
-/// Create a reminder
-///
-/// h!remindme <timestamp> <message>
-#[poise::command(
-    slash_command,
-    prefix_command,
-    aliases("rm", "rember", "reminder", "remind", "dothething"),
-    check = "check_author_reminder_count"
-)]
 pub async fn remindme(
-    ctx: Context<'_>, #[description = "When you want to be reminded"] timestamp: String,
-    #[description = "What you would like to be reminded of"]
-    mut message: Option<String>,
-    offset: Option<String>,
+    ctx: Context<'_>, timestamp: String, mut message: Option<String>, offset: Option<String>,
 ) -> Result<(), Error> {
     let parsed_offset = if let Some(offset) = offset {
         parse_utc_offset(ctx.data(), &offset)? as i64
@@ -92,5 +80,40 @@ pub async fn remindme(
             reminder_id
         )));
     ctx.send(CreateReply::default().embed(embed)).await?;
+    Ok(())
+}
+
+/// Create a reminder
+///
+/// /remindme <timestamp> <message> <utc offset>
+#[poise::command(
+    slash_command,
+    check = "check_author_reminder_count"
+)]
+pub async fn remindme_slash(
+    ctx: Context<'_>, #[description = "When you want to be reminded"] timestamp: String,
+    #[description = "What you would like to be reminded of"] message: Option<String>,
+    #[description = "Override your default UTC offset"] offset: Option<String>,
+) -> Result<(), Error> {
+    remindme(ctx, timestamp, message, offset).await?;
+    Ok(())
+}
+
+/// Create a reminder
+///
+/// h!remindme <timestamp> <message>
+#[poise::command(
+    rename = "remindme",
+    prefix_command,
+    aliases("rm", "rember", "reminder", "remind", "dothething"),
+    check = "check_author_reminder_count"
+)]
+pub async fn remindme_text(
+    ctx: Context<'_>, #[description = "When you want to be reminded"] timestamp: String,
+    #[description = "What you would like to be reminded of"]
+    #[rest]
+    message: Option<String>,
+) -> Result<(), Error> {
+    remindme(ctx, timestamp, message, None).await?;
     Ok(())
 }
