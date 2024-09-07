@@ -24,7 +24,7 @@ pub async fn check_reminders(ctx: &Context, data: &Arc<Data>) {
         r"SELECT r.id, message, timestamp, created_at, c.discord_id AS channel_id, g.discord_id AS guild_id, message_id, fc.discord_id AS fallback_channel
         FROM reminders r
         JOIN reminder_channel rc ON rc.reminder_id = r.id JOIN channels c ON rc.channel_id = c.id
-        JOIN reminder_guild rg on r.id = rg.reminder_id JOIN guilds g on rg.guild_id = g.id
+        JOIN reminder_guild rg ON r.id = rg.reminder_id JOIN guilds g ON rg.guild_id = g.id
         LEFT JOIN channels fc ON fc.id = g.fallback_channel 
         WHERE active = 1 ORDER BY timestamp ASC LIMIT 1").fetch_one(&data.pool).await.unwrap(); // unwrap because tbh shit's joever if this fails
     let user_ids = user_ids_from_reminder_id(data, r.id).await.unwrap();
