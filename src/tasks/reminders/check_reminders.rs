@@ -35,8 +35,7 @@ pub async fn check_reminders(ctx: &Context, data: &Arc<Data>) {
             Err(_) => continue,
         };
         let embed = embed.clone().description(format!(
-            "Hey {0}! <t:{1}:R> on <t:{1}:F>, you asked me to remind you of {2}.\
-            \n\n[View Message](https://hitori.discord.com/channels/{3}/{4}/{5})",
+            "Um, h-hey {0}.. <t:{1}:R> on <t:{1}:F>, you asked me to remind you about {2}. Y-you can [view the context](https://hitori.discord.com/channels/{3}/{4}/{5}) if you need to.. I-I hope that helps!",
             username, r.timestamp, r.message, url_guild_id(r.guild_id), r.channel_id, r.message_id
         ));
         if user_id.direct_message(ctx, CreateMessage::new().embed(embed)).await.is_err() {
@@ -46,8 +45,7 @@ pub async fn check_reminders(ctx: &Context, data: &Arc<Data>) {
     if !dm_disabled_users.is_empty() && r.fallback_channel.is_some() {
         let fallback_channel = ChannelId::new(r.fallback_channel.unwrap() as u64);
         let embed = embed.clone().description(format!(
-            "Hey! <t:{0}:R> on <t:{0}:F>, you asked me to remind you of {1}.\
-            \n\n[View Message](https://hitori.discord.com/channels/{2}/{3}/{4})",
+            "Um, h-hey.. <t:{0}:R> on <t:{0}:F>, you asked me to remind you about {1}. Y-you can [view the context](https://hitori.discord.com/channels/{2}/{3}/{4}) if you need to.. I-I hope that helps!",
             r.timestamp, r.message, url_guild_id(r.guild_id), r.channel_id, r.message_id
         ));
         let mut ping_content = String::new();

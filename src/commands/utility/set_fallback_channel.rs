@@ -31,7 +31,7 @@ pub async fn set_fallback_channel(
         return Err("something really weird happened and the guild-only command returned a channel that's not in a guild".into());
     };
     if guild_channel.kind != ChannelType::Text {
-        return Err("Please specify a text channel.".into());
+        return Err("Ah, you need to specify a text channel... I-I'm afraid only those are supported.".into());
     }
     
     let i_channel_id = get_internal_channel_id(ctx.data(), channel).await?;
@@ -45,7 +45,7 @@ pub async fn set_fallback_channel(
         .color(BOT_COLOR)
         .title("Fallback channel updated.")
         .description(format!(
-            "I will now use <#{}> as fallback channel.", channel.get()
+            "Okay, I'll now use <#{}> as the fallback channel. I-I hope that works for you!", channel.get()
         ));
     ctx.send(CreateReply::default().embed(embed)).await?;
     Ok(())

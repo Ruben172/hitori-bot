@@ -19,13 +19,13 @@ pub async fn unfollow(
 ) -> Result<(), Error> {
     let reminder_id = reminder_id as i64;
     if !reminder_exists_and_active(ctx.data(), reminder_id).await {
-        return Err("Reminder does not exist or has already expired.".into());
+        return Err("Uh, it seems the reminder doesn't exist or it's already expired... S-sorry, but I can't remove you from it.".into()); // TODO: maybe get a better one for this?
     }
     let user_ids = user_ids_from_reminder_id(ctx.data(), reminder_id).await?;
 
     let user_id = ctx.author().id;
     if !user_ids.contains(&user_id) {
-        return Err("You are not following this reminder.".into());        
+        return Err("Um, it looks like you're not following this reminder... S-sorry, but I can't remove you from it.".into());        
     }
 
     let title: String;
@@ -39,7 +39,7 @@ pub async fn unfollow(
     .execute(&ctx.data().pool)
     .await?;
     if user_ids.len() > 1 {
-        title = format!("You will no longer be notified for reminder #{reminder_id}");
+        title = format!("O-okay, you'll no longer be notified for reminder #{reminder_id}. I-I hope that's alright!");
         ephemeral = true;
     } else {
         query!("UPDATE reminders SET active = 0 WHERE id = ?", reminder_id)
@@ -52,7 +52,7 @@ pub async fn unfollow(
         if let Some(reminder) = get_next_reminder_ts(&ctx.data().pool).await {
             cache_reminder(ctx.data(), reminder); // Populate the cached reminder again
         }
-        title = format!("Reminder #{reminder_id} has been removed.");
+        title = format!("Um, reminder #{reminder_id} has been removed. S-since you were the only one tracking it, it... um, no longer exists. I-I hope that's okay!");
         ephemeral = false;
     }
 

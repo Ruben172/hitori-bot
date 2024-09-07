@@ -109,7 +109,7 @@ pub fn matches_to_vecint(captures: &Captures) -> Result<Vec<Option<i32>>, Error>
         match capture {
             Some(c) => {
                 let Ok(parsed_amount) = c.as_str().parse::<i32>() else {
-                    return Err("Failed to parse arguments".into());
+                    return Err("Um, I-I'm having trouble parsing the arguments... C-could you check them and try again?".into());
                 };
                 int_matches.push(Some(parsed_amount));
             }
@@ -127,13 +127,13 @@ pub fn multiply_by_position(data: &[Option<i32>], table: &[i32]) -> Result<i32, 
             continue;
         };
         let Some(rhs) = table.get(i) else {
-            return Err("Failed to parse arguments".into());
+            return Err("Um, I-I'm having trouble parsing the arguments... C-could you check them and try again?".into());
         };
         let Some(multiplied_amount) = c.checked_mul(*rhs) else {
-            return Err("Failed to parse arguments".into());
+            return Err("Um, I-I'm having trouble parsing the arguments... C-could you check them and try again?".into());
         };
         if amount.checked_add(multiplied_amount).is_none() {
-            return Err("Failed to parse arguments".into());
+            return Err("Um, I-I'm having trouble parsing the arguments... C-could you check them and try again?".into());
         };
         amount += multiplied_amount;
     }
@@ -142,7 +142,7 @@ pub fn multiply_by_position(data: &[Option<i32>], table: &[i32]) -> Result<i32, 
 
 pub fn parse_utc_offset(data: &Arc<Data>, offset: &str) -> Result<i32, Error> {
     let regex = &data.regex_cache.utc_offset;
-    let Some(captures) = &regex.captures(offset) else { return Err("Invalid offset.".into()) };
+    let Some(captures) = &regex.captures(offset) else { return Err("Uh, it looks like the offset is invalid... C-could you check it and try again?".into()) };
     let matches = matches_to_vecint(captures)?;
     let sign;
     if let Some(Some(signed)) = matches.first() {

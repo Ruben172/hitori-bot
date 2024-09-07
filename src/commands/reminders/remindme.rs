@@ -24,10 +24,10 @@ pub async fn remindme(
 
     let unix_timestamp = parse_timestamp(ctx.data(), &timestamp, parsed_offset)?;
     if unix_timestamp > Utc::now().timestamp() + MAX_REMINDER_SECONDS {
-        return Err("Reminder duration too long.".into());
+        return Err("U-um... I'm really sorry, but... this reminder duration is... uh... too long! I-I might forget it, so... could we maybe shorten it? If that's okay with you...?".into());
     };
     if unix_timestamp < Utc::now().timestamp() {
-        return Err("Reminder must be in the future!".into());
+        return Err("Ah! Um... the reminder... it has to be in the future! I-I can't, um... go back in time or anything... S-sorry about that!".into());
     }
 
     if let Some(reference) = referenced_from_ctx(ctx) {
@@ -79,13 +79,13 @@ pub async fn remindme(
     cache_reminder(ctx.data(), unix_timestamp);
     let tip = if ctx.guild().is_some() {
         format!(
-            "Tip: use \"{0}follow {1}\" to also get notified for this reminder!",
+            "U-um, just a quick tip! You can use... um, \"{0}follow {1}\", a-and I'll also remind you about the same thing... if you want!",
             ctx.prefix(),
             reminder_id
         )
     } else {
         format!(
-            "Tip: use \"{0}unfollow {1}\" to remove this reminder.",
+            "U-uh, if you ever don't need the reminder anymore, you can just use \"{0}unfollow {1}\" to... um, remove it. I-it's totally fine if you change your mind!",
             ctx.prefix(),
             reminder_id
         )
@@ -95,7 +95,7 @@ pub async fn remindme(
         .color(BOT_COLOR)
         .title(format!("Reminder #{reminder_id} created."))
         .description(format!(
-            "I will remind you <t:{unix_timestamp}:R> on <t:{unix_timestamp}:F> about {message}"
+            "O-okay! I'll remind you in... um, <t:{unix_timestamp}:R>, at <t:{unix_timestamp}:F>, about... uh... {message}! I-I hope that's okay!"
         ))
         .footer(CreateEmbedFooter::new(tip));
     ctx.send(CreateReply::default().embed(embed)).await?;

@@ -38,7 +38,7 @@ pub async fn set_utc_offset(
         .color(BOT_COLOR)
         .title("UTC offset set!".to_string())
         .description(format!(
-            "12:00 in UTC{offset} is <t:{offset_afternoon}:t> in your local time.",
+            "Um, just a heads-up: 12:00 in UTC{offset} is <t:{offset_afternoon}:t> in your local time. I-I hope that helps! If you need anything else, just let me know!"
         ));
     ctx.send(CreateReply::default().embed(embed)).await?;
     Ok(())
