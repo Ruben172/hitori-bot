@@ -1,12 +1,9 @@
-use crate::commands::reminders::util::{
-    check_author_reminder_count, reminder_exists_and_active,
-    user_ids_from_reminder_id,
-};
+use crate::commands::reminders::util::{check_author_reminder_count, guild_from_reminder_id, reminder_exists_and_active, user_ids_from_reminder_id};
 use crate::{BOT_COLOR, Context, Error};
 use poise::serenity_prelude::CreateEmbed;
 use poise::CreateReply;
 use sqlx::query;
-use crate::commands::util::get_internal_user_id;
+use crate::commands::util::{force_guild_id, get_internal_user_id};
 
 /// Follow someone else's reminder
 ///
@@ -28,6 +25,10 @@ pub async fn follow(
     let user_id = ctx.author().id;
     if user_ids.contains(&user_id) {
         return Err("You are already following this reminder.".into());
+    }
+    let guild_id = guild_from_reminder_id(ctx.data(), reminder_id).await?;
+    if guild_id != force_guild_id(ctx.guild_id()) {
+        return Err("Reminder is not from this guild!".into());
     }
 
     let i_user_id = get_internal_user_id(ctx.data(), user_id).await?;

@@ -98,6 +98,13 @@ pub async fn paginate(
     Ok(())
 }
 
+pub fn url_guild_id(guild_id: i64) -> String {
+    match guild_id {
+        -1 => "@me".to_string(),
+        _ => guild_id.to_string()
+    }
+}
+
 // pub async fn send_ephemeral_text(ctx: Context<'_>, content: &str) -> Result<(), Error> {
 //     ctx.send(CreateReply::default().content(content).ephemeral(true)).await?;
 //     Ok(())

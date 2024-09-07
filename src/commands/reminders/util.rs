@@ -162,6 +162,27 @@ pub async fn user_ids_from_reminder_id(
     Ok(reminder.into_iter().map(|x| UserId::new(x.discord_id as u64)).collect::<Vec<UserId>>())
 }
 
+pub async fn guild_from_reminder_id(
+    data: &Arc<Data>, reminder_id: i64,
+) -> Result<i64, Error> {
+    let reminder = query!(
+        r"SELECT discord_id 
+        FROM guilds g
+        JOIN reminder_guild rg ON rg.guild_id = g.id
+        JOIN reminders r ON rg.reminder_id = r.id
+        WHERE r.id = ? AND active = 1",
+        reminder_id
+    )
+    .fetch_one(&data.pool)
+    .await;
+
+    let Ok(reminder) = reminder else {
+        return Err("Error fetching guild".into());
+    };
+    
+    Ok(reminder.discord_id)
+}
+
 pub async fn check_author_reminder_count(ctx: Context<'_>) -> Result<bool, Error> {
     let author_id = ctx.author().id.get() as i64;
     let reminder_count = query!(

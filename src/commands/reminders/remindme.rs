@@ -2,8 +2,8 @@ use crate::commands::reminders::util::{
     cache_reminder, check_author_reminder_count, parse_timestamp,
 };
 use crate::commands::util::{
-    get_author_utc_offset, get_internal_channel_id, get_internal_user_id, message_id_from_ctx,
-    parse_utc_offset, referenced_from_ctx,
+    get_author_utc_offset, get_internal_channel_id, get_internal_guild_id, get_internal_user_id,
+    message_id_from_ctx, parse_utc_offset, referenced_from_ctx,
 };
 use crate::{Context, Error, BOT_COLOR};
 use chrono::Utc;
@@ -21,6 +21,7 @@ pub async fn remindme(
     } else {
         get_author_utc_offset(&ctx).await?
     };
+
     let unix_timestamp = parse_timestamp(ctx.data(), &timestamp, parsed_offset)?;
     if unix_timestamp > Utc::now().timestamp() + MAX_REMINDER_SECONDS {
         return Err("Reminder duration too long.".into());
@@ -28,17 +29,19 @@ pub async fn remindme(
     if unix_timestamp < Utc::now().timestamp() {
         return Err("Reminder must be in the future!".into());
     }
+
     if let Some(reference) = referenced_from_ctx(ctx) {
         if message.is_none() && !reference.content.is_empty() {
             message = Some(reference.content);
         }
     }
-    let message = message.unwrap_or("something".into());
+    let message = message.unwrap_or("something".to_string());
+
     let message_id = message_id_from_ctx(ctx).get() as i64;
     let created_at = ctx.created_at().unix_timestamp();
-
     let i_user_id = get_internal_user_id(ctx.data(), ctx.author().id).await?;
     let i_channel_id = get_internal_channel_id(ctx.data(), ctx.channel_id()).await?;
+    let i_guild_id = get_internal_guild_id(ctx, ctx.guild_id()).await?;
 
     let reminder_id = query!(
         "INSERT INTO reminders (message, timestamp, created_at, message_id) VALUES (?, ?, ?, ?)",
@@ -65,8 +68,28 @@ pub async fn remindme(
     )
     .execute(&ctx.data().pool)
     .await?;
+    query!(
+        r"INSERT INTO reminder_guild (reminder_id, guild_id) VALUES (?, ?)",
+        reminder_id,
+        i_guild_id
+    )
+    .execute(&ctx.data().pool)
+    .await?;
 
     cache_reminder(ctx.data(), unix_timestamp);
+    let tip = if ctx.guild().is_some() {
+        format!(
+            "Tip: use \"{0}follow {1}\" to also get notified for this reminder!",
+            ctx.prefix(),
+            reminder_id
+        )
+    } else {
+        format!(
+            "Tip: use \"{0}unfollow {1}\" to remove this reminder.",
+            ctx.prefix(),
+            reminder_id
+        )
+    };
     let embed = CreateEmbed::new()
         .author(CreateEmbedAuthor::from(ctx.author().clone()))
         .color(BOT_COLOR)
@@ -74,11 +97,7 @@ pub async fn remindme(
         .description(format!(
             "I will remind you <t:{unix_timestamp}:R> on <t:{unix_timestamp}:F> about {message}"
         ))
-        .footer(CreateEmbedFooter::new(format!(
-            "Tip: use \"{0}follow {1}\" to also get notified for this reminder!",
-            ctx.prefix(),
-            reminder_id
-        )));
+        .footer(CreateEmbedFooter::new(tip));
     ctx.send(CreateReply::default().embed(embed)).await?;
     Ok(())
 }
@@ -86,10 +105,7 @@ pub async fn remindme(
 /// Create a reminder
 ///
 /// /remindme <timestamp> <message> <utc offset>
-#[poise::command(
-    slash_command,
-    check = "check_author_reminder_count"
-)]
+#[poise::command(slash_command, check = "check_author_reminder_count")]
 pub async fn remindme_slash(
     ctx: Context<'_>, #[description = "When you want to be reminded"] timestamp: String,
     #[description = "What you would like to be reminded of"] message: Option<String>,

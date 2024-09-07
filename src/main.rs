@@ -18,14 +18,12 @@ mod util;
 use crate::tasks::task_handler;
 use dotenvy::dotenv;
 use poise::{CreateReply, FrameworkError, serenity_prelude as serenity};
-use poise::serenity_prelude::{ChannelId, Color, CreateAllowedMentions, GuildId};
+use poise::serenity_prelude::{Color, CreateAllowedMentions};
 use regex::Regex;
 use sqlx::SqlitePool;
 use std::sync::{Arc, Mutex};
 
 const BOT_COLOR: Color = Color::new(0xfcaaf9);
-const GUILD_ID: GuildId = GuildId::new(1257347557789663252);
-const FALLBACK_CHANNEL: ChannelId = ChannelId::new(1257472857974505554);
 
 pub struct Data {
     regex_cache: RegexCache,

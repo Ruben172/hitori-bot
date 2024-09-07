@@ -1,5 +1,5 @@
 use crate::{Context, Data, Error};
-use poise::serenity_prelude::{ChannelId, Message, MessageId, UserId};
+use poise::serenity_prelude::{ChannelId, GuildId, Message, MessageId, UserId};
 use regex::Captures;
 use sqlx::{query, query_scalar};
 use std::sync::Arc;
@@ -62,6 +62,45 @@ pub async fn get_internal_channel_id(data: &Arc<Data>, channel: ChannelId) -> Re
     Ok(query_scalar!(r"SELECT id FROM channels WHERE discord_id = ?", channel_id)
         .fetch_one(&data.pool)
         .await?)
+}
+
+pub async fn ensure_guild_in_db(ctx: Context<'_>, guild: Option<GuildId>) -> Result<(), Error> {
+    let guild_id = force_guild_id(guild);
+    if query_scalar!(r"SELECT COUNT(1) FROM guilds WHERE (discord_id) = (?)", guild_id)
+        .fetch_one(&ctx.data().pool)
+        .await?
+        .eq(&1)
+    {
+        return Ok(());
+    }
+    let i_fallback_channel_id = if guild.is_some() {
+        Some(get_internal_channel_id(ctx.data(), ctx.channel_id()).await?)
+    } else {
+        None // DMs should not have a fallback channel
+    };
+    query!(
+        r"INSERT OR IGNORE INTO guilds (discord_id, fallback_channel) VALUES (?, ?)",
+        guild_id,
+        i_fallback_channel_id
+    )
+    .execute(&ctx.data().pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn get_internal_guild_id(ctx: Context<'_>, guild: Option<GuildId>) -> Result<i64, Error> {
+    let guild_id = force_guild_id(guild);
+    ensure_guild_in_db(ctx, guild).await?;
+    Ok(query_scalar!(r"SELECT id FROM guilds WHERE discord_id = ?", guild_id)
+        .fetch_one(&ctx.data().pool)
+        .await?)
+}
+
+pub fn force_guild_id(guild: Option<GuildId>) -> i64 {
+    match guild {
+        Some(guild) => guild.get() as i64,
+        None => -1,
+    }
 }
 
 pub fn matches_to_vecint(captures: &Captures) -> Result<Vec<Option<i32>>, Error> {

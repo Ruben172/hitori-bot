@@ -17,6 +17,13 @@ CREATE TABLE channels (
     discord_id INTEGER NOT NULL UNIQUE
 );
 CREATE INDEX channel_index ON channels (discord_id);
+CREATE TABLE guilds (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    discord_id INTEGER NOT NULL UNIQUE,
+    fallback_channel INTEGER,
+    FOREIGN KEY (fallback_channel) REFERENCES channels(id)
+);
+CREATE INDEX guild_index ON guilds (discord_id);
 CREATE TABLE reminder_user (
     reminder_id INTEGER,
     user_id INTEGER,
@@ -29,4 +36,10 @@ CREATE TABLE reminder_channel (
     channel_id INTEGER,
     FOREIGN KEY (reminder_id) REFERENCES reminders(id),
     FOREIGN KEY (channel_id) REFERENCES channels(id)
+);
+CREATE TABLE reminder_guild (
+    reminder_id INTEGER PRIMARY KEY,
+    guild_id INTEGER,
+    FOREIGN KEY (reminder_id) REFERENCES reminders(id),
+    FOREIGN KEY (guild_id) REFERENCES guilds(id)
 );
