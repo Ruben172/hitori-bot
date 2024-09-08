@@ -11,7 +11,7 @@ use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter}
 use poise::CreateReply;
 use sqlx::query;
 
-const MAX_REMINDER_SECONDS: i64 = 34560000;
+const MAX_REMINDER_SECONDS: i64 = 34560000; // 400 days
 
 pub async fn remindme(
     ctx: Context<'_>, timestamp: String, mut message: Option<String>, offset: Option<String>,

@@ -1,25 +1,25 @@
+use crate::commands::util::{matches_to_vecint, multiply_by_position};
 use crate::{Context, Data, Error};
-use chrono::{NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
+use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use poise::serenity_prelude::UserId;
 use regex::Captures;
 use sqlx::{query, query_scalar, SqlitePool};
 use std::sync::Arc;
-use crate::commands::util::{matches_to_vecint, multiply_by_position};
 
 const MAX_REMINDERS: i64 = 25;
 const DAY_IN_SECONDS: i64 = 86400;
 
 fn match_to_int(captures: &Captures) -> Result<i32, Error> {
-    let Some(capture) = captures.get(1) else { return Err("Ah, um... it looks like the timestamp is invalid... I-I don't really understand it. C-could you maybe check it again?".into()) };
+    let Some(capture) = captures.get(1) else {
+        return Err("Ah, um... it looks like the timestamp is invalid... I-I don't really understand it. C-could you maybe check it again?".into());
+    };
     let Ok(parsed_amount) = capture.as_str().parse::<i32>() else {
         return Err("Ah, um... it looks like the timestamp is invalid... I-I don't really understand it. C-could you maybe check it again?".into());
     };
     Ok(parsed_amount)
 }
 
-pub fn date_to_timestamp(
-    year: i32, month: u32, day: u32,
-) -> Result<i64, Error> {
+pub fn date_to_timestamp(year: i32, month: u32, day: u32) -> Result<i64, Error> {
     let Some(dt) = Utc.with_ymd_and_hms(year, month, day, 0, 0, 0).earliest() else {
         return Err("Ah, um... it looks like the timestamp is invalid... I-I don't really understand it. C-could you maybe check it again?".into());
     };
@@ -29,14 +29,30 @@ pub fn date_to_timestamp(
 pub fn parse_ymd(
     data: &[Option<i32>], year_index: usize, day_index: usize,
 ) -> Result<(i32, u32, u32), Error> {
-    let (Some(Some(mut year)), Some(Some(month)), Some(Some(day))) =
+    let (Some(year), Some(Some(month)), Some(Some(day))) =
         (data.get(year_index), data.get(1), data.get(day_index))
     else {
         return Err("Ah, um... it looks like the timestamp is invalid... I-I don't really understand it. C-could you maybe check it again?".into());
     };
-    if year < 100 {
-        year += 2000;
-    }
+    let year = match year {
+        &Some(mut year) => {
+            if year < 100 {
+                year += 2000;
+            }
+            year
+        }
+        None => {
+            let now = Utc::now();
+            let Some(date) = NaiveDate::from_ymd_opt(now.year(), *month as u32, *day as u32) else {
+                return Err("Ah, um... it looks like the timestamp is invalid... I-I don't really understand it. C-could you maybe check it again?".into());
+            };
+            if date <= Utc::now().date_naive() {
+                now.year() + 1
+            } else {
+                now.year()
+            }
+        }
+    };
     Ok((year, *month as u32, *day as u32))
 }
 
@@ -135,8 +151,14 @@ pub async fn get_next_reminder_ts(pool: &SqlitePool) -> Option<i64> {
 }
 
 pub async fn reminder_exists_and_active(data: &Arc<Data>, reminder_id: i64) -> bool {
-    let Ok(exists) = query_scalar!(r"SELECT EXISTS(SELECT 1 FROM reminders WHERE id = ? AND active = 1)", reminder_id).fetch_one(&data.pool).await else {
-        return false
+    let Ok(exists) = query_scalar!(
+        r"SELECT EXISTS(SELECT 1 FROM reminders WHERE id = ? AND active = 1)",
+        reminder_id
+    )
+    .fetch_one(&data.pool)
+    .await
+    else {
+        return false;
     };
     exists != 0
 }
@@ -158,13 +180,11 @@ pub async fn user_ids_from_reminder_id(
     let Ok(reminder) = reminder else {
         return Err("Error fetching users".into());
     };
-    
+
     Ok(reminder.into_iter().map(|x| UserId::new(x.discord_id as u64)).collect::<Vec<UserId>>())
 }
 
-pub async fn guild_from_reminder_id(
-    data: &Arc<Data>, reminder_id: i64,
-) -> Result<i64, Error> {
+pub async fn guild_from_reminder_id(data: &Arc<Data>, reminder_id: i64) -> Result<i64, Error> {
     let reminder = query!(
         r"SELECT discord_id 
         FROM guilds g
@@ -179,7 +199,7 @@ pub async fn guild_from_reminder_id(
     let Ok(reminder) = reminder else {
         return Err("Error fetching guild".into());
     };
-    
+
     Ok(reminder.discord_id)
 }
 
@@ -201,4 +221,3 @@ pub async fn check_author_reminder_count(ctx: Context<'_>) -> Result<bool, Error
     }
     Ok(true)
 }
-
