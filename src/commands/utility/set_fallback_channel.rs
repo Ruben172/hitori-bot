@@ -1,5 +1,5 @@
 use poise::CreateReply;
-use crate::commands::util::{get_internal_channel_id};
+use crate::commands::util::{ensure_guild_in_db, get_internal_channel_id};
 use crate::{BOT_COLOR, Context, Error};
 use poise::serenity_prelude::{ChannelId, ChannelType, CreateEmbed, CreateEmbedAuthor};
 use sqlx::query;
@@ -35,6 +35,7 @@ pub async fn set_fallback_channel(
     }
     
     let i_channel_id = get_internal_channel_id(ctx.data(), channel).await?;
+    ensure_guild_in_db(ctx, ctx.guild_id()).await?;
     let guild_id = guild_channel.guild_id.get() as i64;
     query!(r"UPDATE guilds SET fallback_channel = ? WHERE discord_id = ?", i_channel_id, guild_id)
         .execute(&ctx.data().pool)
